@@ -1,12 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactElement } from 'react';
 
 import { supabase } from './lib/supabase';
 
 // ---- Type helpers ----
 type Player = { id: string; name: string; score: number };
-type Vote = { targetId: string; comment: string };
-type Votes = Record<string, Vote>;
 
 console.log('VITE_SUPABASE_URL', import.meta.env.VITE_SUPABASE_URL);
 // ---- debug helpers ----
@@ -729,19 +726,6 @@ function PlayerVoteCard({ self, players, value, onSubmit }: { self: Player; play
 // ------------------------------
 // DebugPanel
 // ------------------------------
-function DebugPanel({ roomId, phase, currentQ, players, votes, hostId, myId }: any) {
-  return (
-    <div style={{position:'fixed', right: 12, bottom: 12, background:'#111827', color:'#e5e7eb', padding: '10px 12px', borderRadius: 12, fontSize: 12, maxWidth: 320, zIndex: 9999, boxShadow:'0 4px 12px rgba(0,0,0,.25)'}}>
-      <div style={{fontWeight:700, marginBottom:6}}>Debug</div>
-      <div>room: <code>{roomId}</code></div>
-      <div>phase: <code>{phase}</code></div>
-      <div>currentQ: <code>{currentQ}</code></div>
-      <div>hostId: <code>{hostId}</code> / myId: <code>{myId}</code></div>
-      <div>players: {players.length}</div>
-      <div>votes: {Object.keys(votes||{}).length}</div>
-    </div>
-  );
-}
 
 // ------------------------------
 // Extend Window interface
