@@ -1,6 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactElement } from 'react';
 
 import { supabase } from './lib/supabase';
+
+// ---- Type helpers ----
+type Player = { id: string; name: string; score: number };
+type Vote = { targetId: string; comment: string };
+type Votes = Record<string, Vote>;
+
 console.log('VITE_SUPABASE_URL', import.meta.env.VITE_SUPABASE_URL);
 // ---- debug helpers ----
 const URL_DEBUG = (() => {
@@ -112,7 +119,6 @@ function FinalResults({ players, onBack }: { players: any[]; onBack?: () => void
 }
 
 export default function App() {
-  // ルーム作成（ローカルデモなのでダミー）
   const [roomId] = useState(() => {
     const url = new URL(window.location.href);
     const q = url.searchParams.get('room');
@@ -125,8 +131,16 @@ export default function App() {
   const [phase, setPhase] = useState(PHASES.LOBBY);
   const [questions] = useState(DEFAULT_QUESTIONS);
   const [currentQ, setCurrentQ] = useState(0);
-  const [players, setPlayers] = useState<any[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [hostId, setHostId] = useState<string | null>(null);
+  const [isGuest] = useState(() => {
+    try {
+      const url = new URL(window.location.href);
+      return url.searchParams.get('guest') === '1';
+    } catch {
+      return false;
+    }
+  });
 
   // この端末のプレイヤーID（セッション・ルーム単位で保存）
   const [myId] = useState(() => {
@@ -138,20 +152,20 @@ export default function App() {
     sessionStorage.setItem(key, nid);
     return nid;
   });
-  // 最初に入った端末が自動でホストを名乗る（競合時は先着）
+  // ゲスト端末は GM を自動取得しない
   useEffect(() => {
-    if (hostId) return;
+    if (hostId || isGuest) return;
     const t = window.setTimeout(() => {
-      if (!hostId) {
+      if (!hostId && !isGuest) {
         setHostId(myId);
         if (syncRef.current) syncRef.current({ hostId: myId });
       }
     }, 500);
     return () => window.clearTimeout(t);
-  }, [hostId, myId]);
+  }, [hostId, myId, isGuest]);
 
   // 各プレーヤーの投票 { [playerId]: { targetId, comment } }
-  const [votes, setVotes] = useState({});
+  const [votes, setVotes] = useState<Record<string, { targetId: string; comment: string }>>({});
   // 自分が“正答”だとみなす判定：このゲームは「みんなが選びそうな人」を選ぶ系なので、
   // 最終的に 1 位に選ばれた人に投票できていたら正答とする（簡易ルール）
   const [lastRoundResult, setLastRoundResult] = useState(null);
@@ -172,6 +186,9 @@ export default function App() {
   const syncRef = useRef(null as null | ((diff: any) => void));
   const isRemoteRef = useRef(false);
   const skipNextVotesSync = useRef(false);
+  const skipNextPhaseSync = useRef(false);
+  const skipNextLastRoundSync = useRef(false);
+  const skipNextRevealSync = useRef(false);
 
   // 子コンポーネントから安全にブロードキャストするための関数
   const sendDiff = (diff: any) => {
@@ -203,8 +220,8 @@ export default function App() {
       // 自分が送ったブロードキャストは無視（再送ループ/描画カクつき防止）
       if (payload && payload.from === myId) return;
       isRemoteRef.current = true;
-      if (payload.phase !== undefined) setPhase(payload.phase);
-      if (payload.currentQ !== undefined) setCurrentQ(payload.currentQ);
+      if (payload.phase !== undefined) { skipNextPhaseSync.current = true; setPhase(payload.phase); }
+      if (payload.currentQ !== undefined) { setCurrentQ(payload.currentQ); }
       if (payload.votes !== undefined) {
         skipNextVotesSync.current = true;
         // 票はサーバ（orホスト）側の状態を正とし、常に置き換える
@@ -214,8 +231,8 @@ export default function App() {
       if (payload.players !== undefined) {
         setPlayers(prev => mergePlayers(prev, payload.players));
       }
-      if (payload.lastRoundResult !== undefined) setLastRoundResult(payload.lastRoundResult);
-      if (payload.revealIdx !== undefined) setRevealIdx(payload.revealIdx);
+      if (payload.lastRoundResult !== undefined) { skipNextLastRoundSync.current = true; setLastRoundResult(payload.lastRoundResult); }
+      if (payload.revealIdx !== undefined) { skipNextRevealSync.current = true; setRevealIdx(payload.revealIdx); }
       isRemoteRef.current = false;
     });
 
@@ -232,7 +249,11 @@ export default function App() {
   }, [roomId]);
 
   // 変更が起きたら差分を配信（受信起因の変更は送らない）
-  useEffect(() => { if (syncRef.current && !isRemoteRef.current) syncRef.current({ phase }); }, [phase]);
+  useEffect(() => {
+    if (!syncRef.current || isRemoteRef.current) return;
+    if (skipNextPhaseSync.current) { skipNextPhaseSync.current = false; return; }
+    syncRef.current({ phase });
+  }, [phase]);
   useEffect(() => { if (syncRef.current && !isRemoteRef.current) syncRef.current({ currentQ }); }, [currentQ]);
   useEffect(() => {
     if (!syncRef.current || isRemoteRef.current) return;
@@ -249,8 +270,16 @@ export default function App() {
       playersSyncTimer.current = null;
     }, 250);
   }, [players]);
-  useEffect(() => { if (syncRef.current && !isRemoteRef.current) syncRef.current({ lastRoundResult }); }, [lastRoundResult]);
-  useEffect(() => { if (syncRef.current && !isRemoteRef.current) syncRef.current({ revealIdx }); }, [revealIdx]);
+  useEffect(() => {
+    if (!syncRef.current || isRemoteRef.current) return;
+    if (skipNextLastRoundSync.current) { skipNextLastRoundSync.current = false; return; }
+    syncRef.current({ lastRoundResult });
+  }, [lastRoundResult]);
+  useEffect(() => {
+    if (!syncRef.current || isRemoteRef.current) return;
+    if (skipNextRevealSync.current) { skipNextRevealSync.current = false; return; }
+    syncRef.current({ revealIdx });
+  }, [revealIdx]);
 
   // trace important values
   useEffect(() => { dlog('phase ->', phase); }, [phase]);
@@ -272,12 +301,12 @@ export default function App() {
     // 並び順（少ない順＝最下位から）
     const rank = Object.entries(counts)
       .map(([pid, c]) => ({ playerId: pid, count: c }))
-      .sort((a, b) => a.count - b.count);
+      .sort((a, b) => (a as { playerId: string; count: number }).count - (b as { playerId: string; count: number }).count);
     return { counts, comments, rank };
   }, [votes, players]);
 
   // 表示用ユーティリティ
-  const nameOf = (pid) => players.find(p => p.id === pid)?.name ?? "?";
+  const nameOf = (pid: string) => players.find(p => p.id === pid)?.name ?? "?";
 
   // 次ラウンドへ
   const goNextQuestion = () => {
@@ -308,68 +337,37 @@ export default function App() {
   return (
     <div className="min-h-dvh bg-neutral-50 text-neutral-900 p-4 md:p-8">
       <div className="mx-auto max-w-5xl space-y-6">
-        <Header roomId={roomId} phase={phase} currentQ={currentQ} total={questions.length} hostId={hostId} />
-        <Tabs>
-          <Tab label="プレーヤー端末（擬似）">
-            <PlayersSim
-              players={players}
-              setPlayers={setPlayers}
-              phase={phase}
-              setPhase={setPhase}
-              question={questions[currentQ]}
-              votes={votes}
-              setVotes={setVotes}
-              nameOf={nameOf}
-              hostId={hostId}
-              setHostId={setHostId}
-              questions={questions}
-              currentQ={currentQ}
-              everyoneAnswered={everyoneAnswered}
-              tally={tally}
-              lastRoundResult={lastRoundResult}
-              setLastRoundResult={setLastRoundResult}
-              goNextQuestion={goNextQuestion}
-              myId={myId}
-              sendDiff={sendDiff}
-              revealIdx={revealIdx}
-              setRevealIdx={setRevealIdx}
-              onBackToLobby={backToLobby}
-            />
-          </Tab>
-          <Tab label="デバイスプレビュー（GM+4人）">
-            <DevicesPreview
-              players={players}
-              setPlayers={setPlayers}
-              phase={phase}
-              setPhase={setPhase}
-              question={questions[currentQ]}
-              votes={votes}
-              setVotes={setVotes}
-              nameOf={nameOf}
-              questions={questions}
-              currentQ={currentQ}
-              everyoneAnswered={everyoneAnswered}
-              tally={tally}
-              lastRoundResult={lastRoundResult}
-              setLastRoundResult={setLastRoundResult}
-              goNextQuestion={goNextQuestion}
-              hostId={hostId}
-              setHostId={setHostId}
-              myId={myId}
-              sendDiff={sendDiff}
-              revealIdx={revealIdx}
-              setRevealIdx={setRevealIdx}
-              onBackToLobby={backToLobby}
-            />
-          </Tab>
-        </Tabs>
+        <Header roomId={roomId} phase={phase} currentQ={currentQ} total={questions.length} />
+        <PlayersSim
+          players={players}
+          setPlayers={setPlayers}
+          phase={phase}
+          setPhase={setPhase}
+          question={questions[currentQ]}
+          votes={votes}
+          setVotes={setVotes}
+          nameOf={nameOf}
+          onlySelfId={null}
+          hostId={hostId}
+          setHostId={setHostId}
+          questions={questions}
+          currentQ={currentQ}
+          everyoneAnswered={everyoneAnswered}
+          tally={tally}
+          lastRoundResult={lastRoundResult}
+          setLastRoundResult={setLastRoundResult}
+          goNextQuestion={goNextQuestion}
+          myId={myId}
+          sendDiff={sendDiff}
+          revealIdx={revealIdx}
+          setRevealIdx={setRevealIdx}
+          onBackToLobby={backToLobby}
+        />
         {/* Host-forced final results (safety net) */}
         {phase === PHASES.FINISHED && myId === hostId && (
           <FinalResults players={players} onBack={backToLobby} />
         )}
-        {URL_DEBUG && (
-          <DebugPanel roomId={roomId} phase={phase} currentQ={currentQ} players={players} votes={votes} hostId={hostId} myId={myId} />
-        )}
+        
       </div>
     </div>
   );
@@ -378,7 +376,14 @@ export default function App() {
 // ------------------------------
 // Header
 // ------------------------------
-function Header({ roomId, phase, currentQ, total, hostId }) {
+type HeaderProps = {
+  roomId: string;
+  phase: string;
+  currentQ: number;
+  total: number;
+};
+
+function Header({ roomId, phase, currentQ, total }: HeaderProps) {
   const phaseLabel = {
     [PHASES.LOBBY]: "ロビー（参加者集合中）",
     [PHASES.IN_PROGRESS]: `Q${currentQ + 1} 回答中…`,
@@ -413,240 +418,12 @@ function Header({ roomId, phase, currentQ, total, hostId }) {
   );
 }
 
-// ------------------------------
-// GM View（進行と公開を制御）
-// ------------------------------
-function GMView({ players, setPlayers, phase, setPhase, questions, currentQ, everyoneAnswered, tally, nameOf, lastRoundResult, setLastRoundResult, goNextQuestion }) {
-  // ランキング配列（最下位→1位）
-  const ordered = tally.rank;
-  const first = ordered[ordered.length - 1];
-  const second = ordered[ordered.length - 2];
-  const bottom = ordered[0];
 
-  const startGame = () => setPhase(PHASES.IN_PROGRESS);
-  const revealBottom = () => setPhase(PHASES.REVEAL_FROM_BOTTOM);
-  const revealSecond = () => setPhase(PHASES.REVEAL_SECOND);
-  const revealFirst = () => setPhase(PHASES.REVEAL_FIRST);
-
-  const showCorrect = () => {
-    // 1位に投票できていた人を正答として加点
-    if (!first) return;
-    const newPlayers = players.map(p => ({ ...p }));
-    const correctVoterIds = Object.entries(window._votes || {})
-      .filter(([, v]) => v.targetId === first.playerId)
-      .map(([pid]) => pid);
-    newPlayers.forEach(p => {
-      if (correctVoterIds.includes(p.id)) p.score += 1;
-    });
-    setPlayers(newPlayers);
-    setLastRoundResult({ firstTarget: first.playerId, correctVoterIds });
-    setPhase(PHASES.SHOW_CORRECT);
-  };
-
-  const nextRound = () => goNextQuestion();
-
-  // votes を window にミラー（簡易的に GM/Player タブ間で共有）
-  // 実運用ではサーバ同期に置き換え
-  if (typeof window !== "undefined") {
-    window._votes = window._votes || {};
-  }
-
-  return (
-    <div className="space-y-4">
-      {phase === PHASES.LOBBY && (
-        <div className="rounded-2xl border bg-white p-4 shadow-sm">
-          <h2 className="font-semibold">ロビー</h2>
-          <p className="text-sm text-neutral-600">参加者（擬似）:</p>
-          <ul className="flex flex-wrap gap-2 mt-2">
-            {players.map(p => (
-              <li key={p.id} className="px-3 py-1 rounded-full bg-neutral-100 border text-sm">{p.name}</li>
-            ))}
-          </ul>
-          <div className="mt-3 flex gap-2">
-            <button className="btn" onClick={() => setPlayers(prev => [...prev, { id: uid(), name: `新規${prev.length + 1}`, score: 0 }])}>参加者を追加（擬似）</button>
-            <button className="btn btn-primary" onClick={startGame}>ゲーム開始</button>
-          </div>
-        </div>
-      )}
-
-      {phase === PHASES.IN_PROGRESS && (
-        <div className="rounded-2xl border bg-white p-4 shadow-sm">
-          <h2 className="font-semibold">Q{currentQ + 1}：{questions[currentQ]}</h2>
-          <p className="text-sm text-neutral-600">全員の回答待ち… {everyoneAnswered ? "（揃いました）" : ""}</p>
-          <div className="mt-3 flex gap-2">
-            <button className="btn" disabled={!everyoneAnswered} onClick={revealBottom}>結果発表へ（最下位から）</button>
-          </div>
-        </div>
-      )}
-
-      {phase === PHASES.REVEAL_FROM_BOTTOM && (
-        <RevealCard title="最下位" item={bottom} nameOf={nameOf} comments={tally.comments} />
-      )}
-
-      {phase === PHASES.REVEAL_FROM_BOTTOM && (
-        <div className="flex gap-2">
-          <button className="btn" onClick={revealSecond}>次へ（2位）</button>
-        </div>
-      )}
-
-      {phase === PHASES.REVEAL_SECOND && (
-        <RevealCard title="2 位" item={second} nameOf={nameOf} comments={tally.comments} />
-      )}
-
-      {phase === PHASES.REVEAL_SECOND && (
-        <div className="flex gap-2">
-          <button className="btn" onClick={revealFirst}>次へ（1位）</button>
-        </div>
-      )}
-
-      {phase === PHASES.REVEAL_FIRST && (
-        <RevealCard title="1 位" item={first} nameOf={nameOf} highlight comments={tally.comments} />
-      )}
-
-      {phase === PHASES.REVEAL_FIRST && (
-        <div className="flex gap-2">
-          <button className="btn btn-primary" onClick={showCorrect}>外した人を確認！</button>
-        </div>
-      )}
-
-      {phase === PHASES.SHOW_CORRECT && lastRoundResult && (
-        <div className="rounded-2xl border bg-white p-4 shadow-sm">
-          <h3 className="font-semibold">当てた人 / 外した人</h3>
-          <p className="text-sm text-neutral-600">正解（1位）：{nameOf(lastRoundResult.firstTarget)}</p>
-          <ul className="mt-2 grid sm:grid-cols-2 gap-2">
-            {players.map(p => (
-              <li key={p.id} className="flex items-center gap-2 p-2 rounded-xl border">
-                <span className="w-24 font-medium">{p.name}</span>
-                {lastRoundResult.correctVoterIds.includes(p.id) ? (
-                  <span className="badge bg-emerald-100 text-emerald-800">当たり</span>
-                ) : (
-                  <span className="badge bg-rose-100 text-rose-800">ハズレ</span>
-                )}
-              </li>
-            ))}
-          </ul>
-          <div className="mt-3 flex gap-2">
-            <button className="btn" onClick={goNextQuestion}>
-              {currentQ >= questions.length - 1 ? '最終結果へ' : `第${currentQ + 2}問 開始`}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {isHostView && phase === PHASES.FINISHED && (() => {
-        // スコアで降順。同点は同順位（次順位は人数分スキップ）
-        const sorted = [...players].sort((a, b) => b.score - a.score);
-        dlog('FINISHED render sorted', sorted);
-        const ranked: Array<{ rank: number; name: string; score: number }> = [];
-        if (sorted.length > 0) {
-          let i = 0;
-          let rank = 1;
-          while (i < sorted.length) {
-            const s = sorted[i].score ?? 0;
-            const bucket = sorted.filter(p => (p.score ?? 0) === s);
-            bucket.forEach(p => ranked.push({ rank, name: p.name ?? '?', score: p.score ?? 0 }));
-            i += bucket.length;
-            rank += bucket.length;
-          }
-        }
-        dlog('FINISHED render ranked', ranked);
-        // Fallback: show raw players for diagnostics if ranked is empty
-        if (ranked.length === 0) {
-          // Fallback: show raw players for diagnostics
-          return (
-            <div className="rounded-2xl border bg-white p-4 shadow-sm">
-              <h2 className="font-semibold mb-2">最終順位（暫定表示）</h2>
-              <ol className="space-y-2">
-                {players.map((p, idx) => (
-                  <li key={p.id || idx} className="flex items-center gap-3">
-                    <span className="w-8 text-right">{idx + 1}.</span>
-                    <span className="w-28 font-medium">{p.name}</span>
-                    <span className="badge">{p.score ?? 0} 正答</span>
-                  </li>
-                ))}
-              </ol>
-              <div className="mt-3">
-                <button className="btn" onClick={onBackToLobby}>ロビーへ戻る</button>
-              </div>
-              <p className="text-xs text-neutral-600 mt-2">DEBUG: ranked が空のため暫定表示（URLに debug=1 を付けると詳細ログが出ます）</p>
-            </div>
-          );
-        }
-        const medal = (r: number) =>
-          r === 1 ? "🥇" : r === 2 ? "🥈" : r === 3 ? "🥉" : `${r}.`;
-        return (
-          <div className="rounded-2xl border bg-white p-4 shadow-sm">
-            <h2 className="font-semibold mb-2">最終順位（正答数）</h2>
-            <ol className="space-y-2">
-              {ranked.map((row, idx) => (
-                <li key={idx} className="flex items-center gap-3">
-                  <span className="w-8 text-right">{medal(row.rank)}</span>
-                  <span className="w-28 font-medium">{row.name}</span>
-                  <span className="badge">{row.score} 正答</span>
-                </li>
-              ))}
-            </ol>
-            <div className="mt-3">
-              <button className="btn" onClick={onBackToLobby}>ロビーへ戻る</button>
-            </div>
-          </div>
-        );
-      })()}
-
-      {!isHostView && phase === PHASES.FINISHED && (
-        <div className="rounded-2xl border bg-white p-4 shadow-sm">
-          <h2 className="font-semibold">最終結果</h2>
-          <p className="text-sm text-neutral-600">
-            最終結果はGMの端末で表示されます。
-          </p>
-        </div>
-      )}
-
-      <StyleGuide />
-      {URL_DEBUG && phase === PHASES.FINISHED && (
-        <div className="text-xs text-neutral-600">[DEBUG] isHostView: {String(isHostView)} / players: {players.length}</div>
-      )}
-    </div>
-  );
-}
-
-// ------------------------------
-// ランキング表示カード
-// ------------------------------
-function RevealCard({ title, item, nameOf, highlight, comments }) {
-  if (!item) return null;
-  const list = (comments || []).filter(c => c.targetId === item.playerId);
-
-  return (
-    <div className={`rounded-2xl border bg-white p-4 shadow-sm ${highlight ? "ring-2 ring-fuchsia-400" : ""}`}>
-      <h2 className="font-semibold mb-2">{title}</h2>
-      <div className="flex items-center gap-3 text-lg">
-        <span className="font-medium">{nameOf(item.playerId)}</span>
-        <span className="badge">{item.count} 票</span>
-      </div>
-
-      {list.length > 0 && (
-        <div className="mt-2">
-          <h4 className="text-sm font-semibold mb-1">コメント</h4>
-          <ul className="space-y-1">
-            {list.map((c, idx) => (
-              <li key={idx} className="text-sm">
-                <span className="font-medium">{nameOf(c.voterId)}</span>
-                <span className="text-neutral-600">：</span>
-                <span>{c.comment}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ------------------------------
 // プレーヤー疑似端末（複数人分の入力を 1 画面で）
 // ------------------------------
-function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, setVotes, nameOf, onlySelfId, hostId, setHostId, questions, currentQ, everyoneAnswered, tally, lastRoundResult, setLastRoundResult, goNextQuestion, myId, sendDiff, revealIdx, setRevealIdx,  onBackToLobby }) {
+function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, setVotes, nameOf, onlySelfId, hostId, questions, currentQ, everyoneAnswered, tally, lastRoundResult, setLastRoundResult, goNextQuestion, myId, sendDiff, revealIdx, setRevealIdx }: { players: any[]; setPlayers: React.Dispatch<React.SetStateAction<any[]>>; phase: string; setPhase: React.Dispatch<React.SetStateAction<string>>; question: string; votes: Record<string, any>; setVotes: React.Dispatch<React.SetStateAction<Record<string, any>>>; nameOf: (id: string) => string; onlySelfId?: string | null; hostId: string | null; setHostId: React.Dispatch<React.SetStateAction<string | null>>; questions: string[]; currentQ: number; everyoneAnswered: boolean; tally: any; lastRoundResult: any; setLastRoundResult: React.Dispatch<React.SetStateAction<any>>; goNextQuestion: () => void; myId: string; sendDiff: (diff: any) => void; revealIdx: number; setRevealIdx: React.Dispatch<React.SetStateAction<number>>; onBackToLobby: () => void; }) {
   // 同票は同順位のグループ（少ない→多い＝最下位→1位）
   const groups = React.useMemo(() => {
     const m = new Map<number, string[]>();
@@ -673,7 +450,6 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
   const self = players.find(p => p.id === myId);
   const [joinName, setJoinName] = useState(self?.name || "");
   const alreadyJoined = !!self;
-  const iAmHost = myId === hostId;
   const iAmInPlayers = players.some(p => p.id === myId);
 
   // --- local name state for editing player names (GM) ---
@@ -683,9 +459,9 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
     setLocalNames(prev => ({ ...prev, [target]: val }));
   };
 
-  const submit = (pid, targetId, comment) => {
+  const submit = (pid: any, targetId: any, comment: any) => {
     setVotes(prev => ({ ...prev, [pid]: { targetId, comment } }));
-    if (typeof window !== 'undefined' && window.requestAnimationFrame) requestAnimationFrame(() => { sendDiff && sendDiff({ votes: { ...votes, [pid]: { targetId, comment } } }); });
+    requestAnimationFrame(() => { sendDiff && sendDiff({ votes: { ...votes, [pid]: { targetId, comment } } }); });
   };
 
   useEffect(() => {
@@ -727,7 +503,7 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
 
               <p className="text-sm text-neutral-600 mt-3">参加者</p>
               <ul className="flex flex-wrap gap-2 mt-2">
-                {players.map(p => (
+                {players.map((p: Player) => (
                   <li key={p.id} className="px-3 py-1 rounded-full bg-neutral-100 border text-sm">
                     {p.name}{hostId === p.id ? '（GM）' : ''}
                   </li>
@@ -836,17 +612,22 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
               <button
                 className="btn btn-primary"
                 onClick={() => {
-                  // 1位のターゲットを取得
-                  const firstEntry = (tally.rank || [])[ (tally.rank || []).length - 1 ];
-                  const firstTarget = firstEntry?.playerId;
-                  // 正答者（1位に投票した人）を抽出
-                  const correctVoterIds = firstTarget ? Object.entries(votes as any)
-                    .filter(([, v]: any) => v?.targetId === firstTarget)
-                    .map(([pid]) => pid) : [];
+                  // 1位のターゲット（同率含む）を取得
+                  const rankArr = (tally.rank || []);
+                  const maxCount = rankArr.length ? rankArr[rankArr.length - 1].count : null;
+                  const firstTargets = maxCount != null
+                    ? rankArr.filter((e: any) => e.count === maxCount).map((e: any) => e.playerId)
+                    : [];
+                  // 正答者（1位の誰かに投票した人）を抽出
+                  const correctVoterIds = firstTargets.length
+                    ? Object.entries(votes as any)
+                        .filter(([, v]: any) => firstTargets.includes(v?.targetId))
+                        .map(([pid]) => pid)
+                    : [];
                   // スコア加点
                   setPlayers(prev => prev.map(p => correctVoterIds.includes(p.id) ? { ...p, score: (p.score || 0) + 1 } : p));
                   // ラウンド結果を保存
-                  setLastRoundResult({ firstTarget, correctVoterIds });
+                  setLastRoundResult({ firstTargets, correctVoterIds });
                   // 当たり/ハズレ表示へ
                   setPhase(PHASES.SHOW_CORRECT);
                 }}
@@ -859,9 +640,9 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
       {isHostView && phase === PHASES.SHOW_CORRECT && lastRoundResult && (
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
           <h3 className="font-semibold">当てた人 / 外した人</h3>
-          <p className="text-sm text-neutral-600">正解（1位）：{nameOf(lastRoundResult.firstTarget)}</p>
+          <p className="text-sm text-neutral-600">正解（1位）：{(lastRoundResult.firstTargets || []).map(nameOf).join('、')}</p>
           <ul className="mt-2 grid sm:grid-cols-2 gap-2">
-            {players.map(p => (
+            {players.map((p: Player) => (
               <li key={p.id} className="flex items-center gap-2 p-2 rounded-xl border">
                 <span className="w-24 font-medium">{p.name}</span>
                 {lastRoundResult.correctVoterIds.includes(p.id) ? (
@@ -905,47 +686,8 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
   );
 }
 
-function DevicesPreview({ players, setPlayers, phase, setPhase, question, votes, setVotes, nameOf, questions, currentQ, everyoneAnswered, tally, lastRoundResult, setLastRoundResult, goNextQuestion, hostId, setHostId, sendDiff, revealIdx, setRevealIdx, onBackToLobby }) {
-  const four = players.slice(0, 4);
-  return (
-    <div className="devices-grid">
-      {four.map(p => (
-        <div key={p.id} className="device">
-          <h3>プレーヤー端末：{p.name}{hostId === p.id ? '（GM）' : ''}</h3>
-          <div className="device-inner">
-            <PlayersSim
-              players={players}
-              setPlayers={setPlayers}
-              phase={phase}
-              setPhase={setPhase}
-              question={question}
-              votes={votes}
-              setVotes={setVotes}
-              nameOf={nameOf}
-              onlySelfId={p.id}
-              hostId={hostId}
-              setHostId={setHostId}
-              questions={questions}
-              currentQ={currentQ}
-              everyoneAnswered={everyoneAnswered}
-              tally={tally}
-              lastRoundResult={lastRoundResult}
-              setLastRoundResult={setLastRoundResult}
-              goNextQuestion={goNextQuestion}
-              myId={p.id}
-              sendDiff={sendDiff}
-              revealIdx={revealIdx}
-              setRevealIdx={setRevealIdx}
-              onBackToLobby={backToLobby}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
-function PlayerVoteCard({ self, players, value, onSubmit }) {
+function PlayerVoteCard({ self, players, value, onSubmit }: { self: Player; players: Player[]; value: { targetId: string; comment: string } | undefined; onSubmit: (pid: string, targetId: string, comment: string) => void }) {
   const [targetId, setTargetId] = useState(value?.targetId || "");
   const [comment, setComment] = useState(value?.comment || "");
 
@@ -982,114 +724,7 @@ function PlayerVoteCard({ self, players, value, onSubmit }) {
 // ------------------------------
 // ちょい UI
 // ------------------------------
-function Tabs({ children }) {
-  const [i, setI] = useState(0);
-  const arr = React.Children.toArray(children);
-  return (
-    <div>
-      <div className="flex gap-2 mb-3">
-        {arr.map((tab, idx) => (
-          <button key={idx} className={`tab ${i === idx ? "tab-active" : ""}`} onClick={() => setI(idx)}>
-            {tab.props.label}
-          </button>
-        ))}
-      </div>
-      <div>{arr[i]}</div>
-    </div>
-  );
-}
-function Tab({ children }) { return <>{children}</>; }
 
-function StyleGuide() {
-  return (
-    <style>{`
-    .btn { padding: 8px 12px; border-radius: 12px; border: 1px solid #e5e7eb; background: #f5f5f5; font-size: 14px; cursor: pointer; }
-    .btn:hover { background: #e5e5e5; }
-    .btn:disabled { opacity: .6; cursor: not-allowed; }
-    .btn-primary { background: #111827; color: #fff; border-color: #111827; }
-    .btn-primary:hover { background: #1f2937; }
-
-    .input { padding: 8px 12px; border-radius: 12px; border: 1px solid #e5e7eb; background: #fff; }
-    .textarea { min-height: 96px; padding: 8px 12px; border-radius: 12px; border: 1px solid #e5e7eb; background: #fff; width: 100%; }
-
-    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; border: 1px solid #e5e7eb; font-size: 12px; }
-
-    .chip { padding: 6px 12px; border-radius: 9999px; border: 1px solid #e5e7eb; background: #fff; font-size: 14px; cursor: pointer; }
-    .chip:hover { background: #f5f5f5; }
-    .chip-active { background: #111827; color: #fff; border-color: #111827; }
-
-    .tab { padding: 8px 12px; border-radius: 12px; border: 1px solid #e5e7eb; background: #fff; font-size: 14px; cursor: pointer; }
-    .tab:hover { background: #f5f5f5; }
-    .tab-active { background: #111827; color: #fff; }
-
-    /* minimal helpers for card-like blocks */
-    .rounded-2xl { border-radius: 16px; }
-    .rounded-xl { border-radius: 12px; }
-    .border { border: 1px solid #e5e7eb; }
-    .bg-white { background: #fff; }
-    .p-4 { padding: 16px; }
-    .shadow-sm { box-shadow: 0 1px 2px rgba(0,0,0,.05); }
-
-    /* basic color utilities to ensure visibility */
-.text-neutral-900 { color: #111827; }
-.text-neutral-600 { color: #525252; }
-.bg-neutral-50 { background: #f9fafb; }
-
-/* typography utilities */
-.font-bold { font-weight: 700; }
-.font-semibold { font-weight: 600; }
-.font-medium { font-weight: 500; }
-.font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-
-/* layout helpers used in markup */
-.min-h-dvh { min-height: 100dvh; }
-.mx-auto { margin-left: auto; margin-right: auto; }
-.max-w-5xl { max-width: 64rem; }
-.space-y-6 > * + * { margin-top: 1.5rem; }
-.p-4 { padding: 16px; }
-.md\:p-8 { padding: 32px; }
-.gap-3 { gap: 0.75rem; }
-.mb-2 { margin-bottom: 0.5rem; }
-.mt-2 { margin-top: 0.5rem; }
-.mt-3 { margin-top: 0.75rem; }
-.w-24 { width: 6rem; }
-.w-28 { width: 7rem; }
-.w-8 { width: 2rem; }
-.text-right { text-align: right; }
-.grid { display: grid; }
-.flex { display: flex; }
-.flex-wrap { flex-wrap: wrap; }
-.items-center { align-items: center; }
-.inline-flex { display: inline-flex; }
-.rounded-full { border-radius: 9999px; }
-
-/* ring / badges / notice colors used in markup */
-.ring-2 { outline: 2px solid rgba(217, 70, 239, 0.6); }
-.ring-fuchsia-400 { outline-color: #e879f9; }
-.bg-amber-50 { background: #fffbeb; }
-.text-amber-900 { color: #78350f; }
-.bg-emerald-100 { background: #d1fae5; }
-.text-emerald-800 { color: #065f46; }
-.bg-rose-100 { background: #ffe4e6; }
-.text-rose-800 { color: #9f1239; }
-
-/* ensure text inside white cards is dark */
-.bg-white { background: #fff; color: #111827; }
-
-.devices-grid { display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 16px; }
-@media (min-width: 900px) { .devices-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 1280px) { .devices-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-.device { background: #111827; border-radius: 16px; padding: 8px; border: 1px solid #2b2f36; }
-.device-inner { background: #fff; border-radius: 12px; padding: 8px; }
-.device h3 { color: #e5e7eb; font-size: 14px; margin: 4px 8px; }
-/* remove bullets on name chips lists */
-ul { list-style: none; padding-left: 0; margin-left: 0; }
-
-.space-y-1 > * + * { margin-top: 4px; }
-.mb-1 { margin-bottom: 4px; }
-  `}</style>
-  );
-}
 
 // ------------------------------
 // DebugPanel
@@ -1106,6 +741,15 @@ function DebugPanel({ roomId, phase, currentQ, players, votes, hostId, myId }: a
       <div>votes: {Object.keys(votes||{}).length}</div>
     </div>
   );
+}
+
+// ------------------------------
+// Extend Window interface
+// ------------------------------
+declare global {
+  interface Window {
+    _votes?: Record<string, { targetId: string; comment: string }>;
+  }
 }
 
 // ------------------------------
