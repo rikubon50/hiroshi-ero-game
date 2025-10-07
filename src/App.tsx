@@ -43,8 +43,64 @@ const DEFAULT_QUESTIONS = [
   "経験人数が10人以上いそうな人は？",
 ];
 
+// 合コン向けお題プール（通常80系/ちょいえっち20系）
+const GENERAL_QUESTIONS = [
+  "小学生の頃、『終業式の日に全ての荷物持ち帰る系生徒』だっただろう人",
+  "掃除の時『ちょっと男子！』って言ってそうな人",
+  "恋人と別れた理由がかなりドロドロしていそうな人",
+  "今日、誰かと連絡先を交換して帰りそうな人",
+  "お酒を一番楽しんで酔っ払いそうな人",
+  "実はこの場で一番緊張していそうな人",
+  "この後、二次会に一番乗り気じゃなさそうな人",
+  "次の日も休みだから朝まで遊びそうな人",
+  "合コンに慣れていなさそうな人",
+  "今日のメンバーの中で一番本命の相手が決まっていそうな人",
+  "実はこの後気になる人を誘って抜け出しそうな人",
+  "第一印象と今で一番ギャップがありそうな人",
+  "合コンに参加する前に作戦会議をしっかり立てていそうな人",
+  "今日の合コンを一番反省しそうな人",
+  "実は自分のグループの異性に一番辛口なコメントをしそうな人",
+  "一番恋愛の修羅場を踏んでいそうな人",
+  "給食の時に誰よりも早くおかわりをしそうな人",
+  "掃除の時間にほうきで遊んで先生に怒られそうな人",
+  "夏休みの宿題を最終日まで残していそうな人",
+  "休み時間に友達とずっと恋愛の話をしていそうな人",
+  "卒業式で先生に手紙を書いて泣きそうな人",
+  "習い事を掛け持ちして放課後が一番忙しそうな人",
+  "授業に寝坊して友達に代返を頼みそうな人",
+  "テスト前にノートを見せてとたくさんの人に頼られそうな人",
+  "学食より外のおしゃれなランチを開拓しそうな人",
+  "大学のイケメンの情報を誰よりも詳しそうな人",
+  "教育実習に行ったら絶対高校生たちにいじられそうな人",
+  "実はかなり嫉妬深い性格の持ち主そうな人",
+];
+
+const ERO_QUESTIONS = [
+  "実は二の腕フェチな人",
+  "実はドSっぽい気質がありそうな人",
+  "実はドMっぽい気質がありそうな人",
+  "一晩の関係を経験していそうな人",
+  "Hの経験人数が多そうな人",
+  "Hがワンパターンそうな人",
+  "Hのテクニックが熟練していそうな人",
+  "別れ際に修羅場を作ったことがありそうな人",
+  "恋人以外の異性と二人きりで飲みに行きそうな人",
+  "夜の生活の回数が多そうな人",
+  "キスは自分から積極的にしそうな人",
+  "実は浮気がバレた経験がありそうな人",
+  "恋人の携帯をこっそり見てしまいそうな人",
+  "最近あんまりそういう機会がなくて悩んでいそうな人",
+  "本番よりもその前段階を重要視してくれそうな人",
+  "体の関係から恋人に発展しそうな人",
+  "恋人の過去の経験人数を気にしそうな人",
+  "SNSでこっそり異性を物色していそうな人",
+  "デート代は全て異性に奢ってもらいそうな人",
+  "実は身体の相性を最も重視しそうな人",
+];
+
 const PHASES = {
-  LOBBY: "LOBBY", // 参加者集合
+  LOBBY: "LOBBY", // 参加者集合（ルール表示もここで）
+  TOPIC_INPUT: "TOPIC_INPUT", // お題入力（自由記述）
   IN_PROGRESS: "IN_PROGRESS", // 質問ラウンド中
   REVEAL_FROM_BOTTOM: "REVEAL_FROM_BOTTOM", // 最下位から順に公開
   REVEAL_SECOND: "REVEAL_SECOND", // 2位公開
@@ -126,7 +182,7 @@ export default function App() {
     return rid;
   });
   const [phase, setPhase] = useState(PHASES.LOBBY);
-  const [questions] = useState(DEFAULT_QUESTIONS);
+  const [questions, setQuestions] = useState(DEFAULT_QUESTIONS);
   const [currentQ, setCurrentQ] = useState(0);
   const [players, setPlayers] = useState<Player[]>([]);
   const [hostId, setHostId] = useState<string | null>(null);
@@ -167,6 +223,9 @@ export default function App() {
   // 最終的に 1 位に選ばれた人に投票できていたら正答とする（簡易ルール）
   const [lastRoundResult, setLastRoundResult] = useState(null);
   const [revealIdx, setRevealIdx] = useState(0);
+
+  // お題提案パネル表示
+  const [showSuggest, setShowSuggest] = useState(false);
 
   // players のマージ（上書きは incoming を優先）
   const mergePlayers = (prev: any[], incoming: any[]) => {
@@ -346,8 +405,9 @@ export default function App() {
           nameOf={nameOf}
           onlySelfId={null}
           hostId={hostId}
-          setHostId={setHostId}
+          roomId={roomId}
           questions={questions}
+          setQuestions={setQuestions}
           currentQ={currentQ}
           everyoneAnswered={everyoneAnswered}
           tally={tally}
@@ -358,7 +418,8 @@ export default function App() {
           sendDiff={sendDiff}
           revealIdx={revealIdx}
           setRevealIdx={setRevealIdx}
-          onBackToLobby={backToLobby}
+          showSuggest={showSuggest}
+          setShowSuggest={setShowSuggest}
         />
         {/* Host-forced final results (safety net) */}
         {phase === PHASES.FINISHED && myId === hostId && (
@@ -383,6 +444,7 @@ type HeaderProps = {
 function Header({ roomId, phase, currentQ, total }: HeaderProps) {
   const phaseLabel = {
     [PHASES.LOBBY]: "ロビー（参加者集合中）",
+    [PHASES.TOPIC_INPUT]: "お題入力",
     [PHASES.IN_PROGRESS]: `Q${currentQ + 1} 回答中…`,
     [PHASES.REVEAL_FROM_BOTTOM]: "結果発表：最下位〜",
     [PHASES.REVEAL_SECOND]: "結果発表：2位",
@@ -396,18 +458,21 @@ function Header({ roomId, phase, currentQ, total }: HeaderProps) {
       <div>
         <h1 className="text-2xl md:text-3xl font-bold">ひろしエロゲー｜みんなの“思ってるやつ”投票ゲーム</h1>
         <p className="text-sm text-neutral-600">Room ID: <span className="font-mono">{roomId}</span> / 状態: {phaseLabel}</p>
-        <div className="mt-2 flex gap-2">
-          <button
-            className="btn"
-            onClick={() => {
-              const url = new URL(window.location.href);
-              url.searchParams.set('room', roomId);
-              url.searchParams.set('guest', '1');
-              url.searchParams.delete('host');
-              navigator.clipboard.writeText(url.toString());
-              alert('招待リンクをコピーしました（guest=1）');
-            }}
-          >招待リンクをコピー</button>
+        <div className="mt-2 flex flex-col gap-2">
+          <p className="text-xs text-neutral-600">ゲームマスターになる人は下のリンクをコピーして、参加者に送ってね。</p>
+          <div className="flex gap-2">
+            <button
+              className="btn"
+              onClick={() => {
+                const url = new URL(window.location.href);
+                url.searchParams.set('room', roomId);
+                url.searchParams.set('guest', '1');
+                url.searchParams.delete('host');
+                navigator.clipboard.writeText(url.toString());
+                alert('招待リンクをコピーしました（guest=1）');
+              }}
+            >招待リンクをコピー</button>
+          </div>
         </div>
       </div>
       <div className="text-sm text-neutral-600">進行 {Math.min(currentQ + 1, total)} / {total}</div>
@@ -420,7 +485,7 @@ function Header({ roomId, phase, currentQ, total }: HeaderProps) {
 // ------------------------------
 // プレーヤー疑似端末（複数人分の入力を 1 画面で）
 // ------------------------------
-function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, setVotes, nameOf, onlySelfId, hostId, questions, currentQ, everyoneAnswered, tally, lastRoundResult, setLastRoundResult, goNextQuestion, myId, sendDiff, revealIdx, setRevealIdx }: { players: any[]; setPlayers: React.Dispatch<React.SetStateAction<any[]>>; phase: string; setPhase: React.Dispatch<React.SetStateAction<string>>; question: string; votes: Record<string, any>; setVotes: React.Dispatch<React.SetStateAction<Record<string, any>>>; nameOf: (id: string) => string; onlySelfId?: string | null; hostId: string | null; setHostId: React.Dispatch<React.SetStateAction<string | null>>; questions: string[]; currentQ: number; everyoneAnswered: boolean; tally: any; lastRoundResult: any; setLastRoundResult: React.Dispatch<React.SetStateAction<any>>; goNextQuestion: () => void; myId: string; sendDiff: (diff: any) => void; revealIdx: number; setRevealIdx: React.Dispatch<React.SetStateAction<number>>; onBackToLobby: () => void; }) {
+function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, setVotes, nameOf, onlySelfId, hostId, roomId, questions, setQuestions, currentQ, everyoneAnswered, tally, lastRoundResult, setLastRoundResult, goNextQuestion, myId, sendDiff, revealIdx, setRevealIdx, showSuggest, setShowSuggest }: { players: any[]; setPlayers: React.Dispatch<React.SetStateAction<any[]>>; phase: string; setPhase: React.Dispatch<React.SetStateAction<string>>; question: string; votes: Record<string, any>; setVotes: React.Dispatch<React.SetStateAction<Record<string, any>>>; nameOf: (id: string) => string; onlySelfId?: string | null; hostId: string | null; roomId: string; questions: string[]; setQuestions: React.Dispatch<React.SetStateAction<string[]>>; currentQ: number; everyoneAnswered: boolean; tally: any; lastRoundResult: any; setLastRoundResult: React.Dispatch<React.SetStateAction<any>>; goNextQuestion: () => void; myId: string; sendDiff: (diff: any) => void; revealIdx: number; setRevealIdx: React.Dispatch<React.SetStateAction<number>>; showSuggest: boolean; setShowSuggest: React.Dispatch<React.SetStateAction<boolean>>; }) {
   // 同票は同順位のグループ（少ない→多い＝最下位→1位）
   const groups = React.useMemo(() => {
     const m = new Map<number, string[]>();
@@ -506,13 +571,30 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
                   </li>
                 ))}
               </ul>
+              <div className="mt-3">
+                <button className="btn" onClick={() => setShowSuggest(v => !v)}>
+                  {showSuggest ? 'お題作成を閉じる' : 'お題を作成する'}
+                </button>
+              </div>
+              {showSuggest && (
+                <SuggestQuestionPanel roomId={roomId} authorId={myId} onClose={() => setShowSuggest(false)} />
+              )}
+
+              <div className="mt-3">
+                <h3 className="font-semibold mb-1">ルール</h3>
+                <ol className="list-decimal list-inside text-sm text-neutral-700 space-y-1">
+                  <li>GMが問題を進行します。参加者は各設問に対して「みんなが選びそうな人」を投票します。</li>
+                  <li>コメントは必須。回答が揃ったらGMの端末で結果を最下位→2位→1位の順で発表します。</li>
+                  <li>1位に投票できていたら正解。正答数で最終順位を決めます。</li>
+                </ol>
+              </div>
 
               <div className="mt-3 flex items-center gap-2">
                 <button
                   className="btn btn-primary"
                   disabled={!(iAmInPlayers && players.length >= 2)}
-                  onClick={() => { setPhase(PHASES.IN_PROGRESS); }}
-                >ゲーム開始</button>
+                  onClick={() => { setPhase(PHASES.TOPIC_INPUT); }}
+                >参加者が揃ったらタップでゲーム開始！</button>
                 {!(iAmInPlayers && players.length >= 2) && (
                   <span className="text-sm text-neutral-600">※ GMが参加し、参加者2人以上で開始できます</span>
                 )}
@@ -546,9 +628,37 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
               {alreadyJoined && (
                 <p className="text-xs text-neutral-600 mt-2">開始を待っています…（GMが「ゲーム開始」を押します）</p>
               )}
+              <div className="mt-4">
+                <h3 className="font-semibold mb-1">ルール</h3>
+                <ol className="list-decimal list-inside text-sm text-neutral-700 space-y-1">
+                  <li>GMが問題を進行します。参加者は各設問に対して「みんなが選びそうな人」を投票します。</li>
+                  <li>コメントは必須。回答が揃ったらGMの端末で結果を最下位→2位→1位の順で発表します。</li>
+                  <li>1位に投票できていたら正解。正答数で最終順位を決めます。</li>
+                </ol>
+              </div>
+              <div className="mt-3">
+                <button className="btn" onClick={() => setShowSuggest(v => !v)}>
+                  {showSuggest ? 'お題作成を閉じる' : 'お題を作成する'}
+                </button>
+              </div>
+              {showSuggest && (
+                <SuggestQuestionPanel roomId={roomId} authorId={myId} onClose={() => setShowSuggest(false)} />
+              )}
             </>
           )}
         </div>
+      )}
+
+
+      {isHostView && phase === PHASES.TOPIC_INPUT && (
+        <TopicInputPanel onCancel={() => setPhase(PHASES.LOBBY)} onStart={(qs) => {
+          setRevealIdx(0);
+          setVotes({});
+          sendDiff && sendDiff({ votes: {} });
+          setLastRoundResult(null);
+          setQuestions(qs);
+          setPhase(PHASES.IN_PROGRESS);
+        }} />
       )}
 
       {phase === PHASES.IN_PROGRESS && (
@@ -781,3 +891,85 @@ function uid() { return Math.random().toString(36).slice(2, 10); }
   - 5問固定だが可変にするなら rooms.max_questions を追加
   - 同率順位は同ページで並記（仕様通り）
 -------------------------------------------------------------- */
+
+// お題入力パネル
+function TopicInputPanel({ onCancel, onStart }: { onCancel?: () => void; onStart: (questions: string[]) => void }) {
+  const [freeText, setFreeText] = useState("");
+  const [includeFree, setIncludeFree] = useState(true);
+  // 5問生成：1/5 でエロ系、それ以外は通常。free を混ぜる場合はランダムで1問差し替え
+  const buildQuestions = () => {
+    const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
+    const out: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      const isEro = Math.random() < 0.2; // 5分の1でエロ
+      out.push(isEro ? pick(ERO_QUESTIONS) : pick(GENERAL_QUESTIONS));
+    }
+    if (includeFree && freeText.trim() && Math.random() < 0.5) {
+      const idx = Math.floor(Math.random() * out.length);
+      out[idx] = freeText.trim();
+    }
+    return out;
+  };
+
+  return (
+    <div className="rounded-2xl border bg-white p-4 shadow-sm">
+      <h2 className="font-semibold">お題入力（任意）</h2>
+      <p className="text-sm text-neutral-600">5問のうち 1問は 20% の確率で「ちょいえっち」系が混ざります。自由記述を混ぜる場合は下に入力してください。</p>
+      <label className="mt-2 block text-sm font-medium">自由記述のお題（任意）</label>
+      <textarea className="textarea w-full mt-1" placeholder="例）今日一番モテるのは誰？" value={freeText} onChange={e => setFreeText(e.target.value)} />
+      <label className="mt-2 inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={includeFree} onChange={e => setIncludeFree(e.target.checked)} />この自由記述を今回ランダムで混ぜる</label>
+      <div className="mt-3 flex gap-2">
+        {onCancel && <button className="btn" onClick={onCancel}>戻る</button>}
+        <button className="btn btn-primary" onClick={() => onStart(buildQuestions())}>ゲームを開始</button>
+      </div>
+    </div>
+  );
+}
+
+function SuggestQuestionPanel({ roomId, authorId, onClose }: { roomId: string; authorId: string; onClose?: () => void }) {
+  const [body, setBody] = useState("");
+  const [category, setCategory] = useState<'general' | 'ero'>('general');
+  const [submitting, setSubmitting] = useState(false);
+  const canSubmit = body.trim().length >= 4 && body.trim().length <= 120 && !submitting;
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    try {
+      const payload = { room_id: roomId, author_id: authorId, body: body.trim(), category, created_at: new Date().toISOString() };
+      const { error } = await supabase.from('question_suggestions').insert(payload);
+      if (error) throw error;
+      alert('お題を受け付けました。ご協力ありがとうございます！');
+      setBody("");
+      setCategory('general');
+      onClose && onClose();
+    } catch (e: any) {
+      console.error(e);
+      alert('送信に失敗しました。時間をおいて再度お試しください。');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 rounded-2xl border bg-white p-4 shadow-sm">
+      <h3 className="font-semibold">お題を投稿</h3>
+      <p className="text-xs text-neutral-600">運営側に蓄積され、今後の問題プールに活用されます（4〜120文字）。</p>
+      <textarea className="textarea w-full mt-2" placeholder="例）今日のメンバーで一番マイペースなのは誰？" value={body} onChange={e => setBody(e.target.value)} maxLength={120} />
+      <div className="mt-2 flex items-center gap-3 text-sm">
+        <label className="inline-flex items-center gap-2">
+          <input type="radio" name="qcat" checked={category==='general'} onChange={() => setCategory('general')} />
+          通常（おもしろ系）
+        </label>
+        <label className="inline-flex items-center gap-2">
+          <input type="radio" name="qcat" checked={category==='ero'} onChange={() => setCategory('ero')} />
+          ちょいえっち
+        </label>
+      </div>
+      <div className="mt-3 flex gap-2">
+        <button className="btn" onClick={onClose}>閉じる</button>
+        <button className="btn btn-primary" disabled={!canSubmit} onClick={submit}>{submitting ? '送信中…' : '送信'}</button>
+      </div>
+    </div>
+  );
+}
