@@ -584,7 +584,7 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
                 <h3 className="font-semibold mb-1">ルール</h3>
                 <ol className="list-decimal list-inside text-sm text-neutral-700 space-y-1">
                   <li>GMが問題を進行します。参加者は各設問に対して「みんなが選びそうな人」を投票します。</li>
-                  <li>コメントは必須。回答が揃ったらGMの端末で結果を最下位→2位→1位の順で発表します。</li>
+                  <li>コメントは必須。回答が揃ったらGMの端末で結果を最下位から発表します。</li>
                   <li>1位に投票できていたら正解。正答数で最終順位を決めます。</li>
                 </ol>
               </div>
