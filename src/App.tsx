@@ -547,7 +547,9 @@ function Header({ roomId, phase, currentQ, total }: HeaderProps) {
           </div>
         </div>
       </div>
-      <div className="text-sm text-neutral-600">進行 {Math.min(currentQ + 1, total)} / {total}</div>
+      {phase !== PHASES.LOBBY && phase !== PHASES.TOPIC_INPUT && (
+        <div className="text-sm text-neutral-600">進行 {Math.min(currentQ + 1, total)} / {total}</div>
+      )}
     </div>
   );
 }
