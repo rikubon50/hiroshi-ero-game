@@ -232,6 +232,9 @@ export default function App() {
   const [lastRoundResult, setLastRoundResult] = useState(null);
   const [revealIdx, setRevealIdx] = useState(0);
 
+  const [gameMode, setGameMode] = useState<'normal' | 'adult'>('normal');
+  const skipNextGameModeSync = useRef(false);
+
   // お題提案パネル表示
   const [showSuggest, setShowSuggest] = useState(false);
 
@@ -272,6 +275,7 @@ export default function App() {
         if (s.votes && typeof s.votes === 'object') setVotes(s.votes);
         if (s.lastRoundResult !== undefined) setLastRoundResult(s.lastRoundResult);
         if (Number.isInteger(s.revealIdx)) setRevealIdx(s.revealIdx);
+        if (s.gameMode) setGameMode(s.gameMode);
       }
     } catch (e) {
       console.warn('[snapshot] failed to load', e);
@@ -297,6 +301,7 @@ export default function App() {
         votes,
         lastRoundResult,
         revealIdx,
+        gameMode,
       };
       try { localStorage.setItem(SNAP_KEY, JSON.stringify(data)); } catch {}
     };
@@ -306,7 +311,7 @@ export default function App() {
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     };
-  }, [roomId, phase, questions, currentQ, players, hostId, votes, lastRoundResult, revealIdx]);
+  }, [roomId, phase, questions, currentQ, players, hostId, votes, lastRoundResult, revealIdx, gameMode]);
 
   // 子コンポーネントから安全にブロードキャストするための関数
   const sendDiff = (diff: any) => {
@@ -355,6 +360,10 @@ export default function App() {
       }
       if (payload.lastRoundResult !== undefined) { skipNextLastRoundSync.current = true; setLastRoundResult(payload.lastRoundResult); }
       if (payload.revealIdx !== undefined) { skipNextRevealSync.current = true; setRevealIdx(payload.revealIdx); }
+      if (payload.gameMode !== undefined) {
+        skipNextGameModeSync.current = true;
+        setGameMode(payload.gameMode);
+      }
       isRemoteRef.current = false;
     });
 
@@ -414,6 +423,12 @@ export default function App() {
   useEffect(() => { dlog('players ->', players.map(p => ({ id: p.id, name: p.name, score: p.score }))); }, [players]);
   useEffect(() => { dlog('votes keys ->', Object.keys(votes)); }, [votes]);
   useEffect(() => { dlog('hostId ->', hostId, 'myId ->', myId); }, [hostId]);
+
+  useEffect(() => {
+    if (!syncRef.current || isRemoteRef.current || hydratingRef.current) return;
+    if (skipNextGameModeSync.current) { skipNextGameModeSync.current = false; return; }
+    syncRef.current({ gameMode });
+  }, [gameMode]);
 
   const everyoneAnswered = useMemo(() => Object.keys(votes).length === players.length, [votes, players.length]);
 
@@ -492,6 +507,8 @@ export default function App() {
           setRevealIdx={setRevealIdx}
           showSuggest={showSuggest}
           setShowSuggest={setShowSuggest}
+          gameMode={gameMode}
+          setGameMode={setGameMode}
         />
         {/* Host-forced final results (safety net) */}
         {phase === PHASES.FINISHED && myId === hostId && (
@@ -559,7 +576,8 @@ function Header({ roomId, phase, currentQ, total }: HeaderProps) {
 // ------------------------------
 // プレーヤー疑似端末（複数人分の入力を 1 画面で）
 // ------------------------------
-function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, setVotes, nameOf, onlySelfId, hostId, roomId, questions, setQuestions, currentQ, setCurrentQ, everyoneAnswered, tally, lastRoundResult, setLastRoundResult, goNextQuestion, myId, sendDiff, revealIdx, setRevealIdx, showSuggest, setShowSuggest }: { players: any[]; setPlayers: React.Dispatch<React.SetStateAction<any[]>>; phase: string; setPhase: React.Dispatch<React.SetStateAction<string>>; question: string; votes: Record<string, any>; setVotes: React.Dispatch<React.SetStateAction<Record<string, any>>>; nameOf: (id: string) => string; onlySelfId?: string | null; hostId: string | null; roomId: string; questions: string[]; setQuestions: React.Dispatch<React.SetStateAction<string[]>>; currentQ: number; setCurrentQ: React.Dispatch<React.SetStateAction<number>>; everyoneAnswered: boolean; tally: any; lastRoundResult: any; setLastRoundResult: React.Dispatch<React.SetStateAction<any>>; goNextQuestion: () => void; myId: string; sendDiff: (diff: any) => void; revealIdx: number; setRevealIdx: React.Dispatch<React.SetStateAction<number>>; showSuggest: boolean; setShowSuggest: React.Dispatch<React.SetStateAction<boolean>>; }) {
+function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, setVotes, nameOf, onlySelfId, hostId, roomId, questions, setQuestions, currentQ, setCurrentQ, everyoneAnswered, tally, lastRoundResult, setLastRoundResult, goNextQuestion, myId, sendDiff, revealIdx, setRevealIdx, showSuggest, setShowSuggest, gameMode, setGameMode }: { players: any[]; setPlayers: React.Dispatch<React.SetStateAction<any[]>>; phase: string; setPhase: React.Dispatch<React.SetStateAction<string>>; question: string; votes: Record<string, any>; setVotes: React.Dispatch<React.SetStateAction<Record<string, any>>>; nameOf: (id: string) => string; onlySelfId?: string | null; hostId: string | null; roomId: string; questions: string[]; setQuestions: React.Dispatch<React.SetStateAction<string[]>>; currentQ: number; setCurrentQ: React.Dispatch<React.SetStateAction<number>>; everyoneAnswered: boolean; tally: any; lastRoundResult: any; setLastRoundResult: React.Dispatch<React.SetStateAction<any>>; goNextQuestion: () => void; myId: string; sendDiff: (diff: any) => void; revealIdx: number; setRevealIdx: React.Dispatch<React.SetStateAction<number>>; showSuggest: boolean; setShowSuggest: React.Dispatch<React.SetStateAction<boolean>>;   gameMode: 'normal' | 'adult';
+  setGameMode: React.Dispatch<React.SetStateAction<'normal' | 'adult'>>;}) {
   // 同票は同順位のグループ（少ない→多い＝最下位→1位）
   const groups = React.useMemo(() => {
     const m = new Map<number, string[]>();
@@ -657,6 +675,30 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
                 ))}
               </ul>
               <div className="mt-3">
+                <h3 className="font-semibold text-sm mb-1">モード</h3>
+                <div className="inline-flex items-center gap-4 text-sm">
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="mode"
+                      checked={gameMode === 'normal'}
+                      onChange={() => { setGameMode('normal'); sendDiff && sendDiff({ gameMode: 'normal' }); }}
+                    />
+                    普通（おもしろ + ちょいえっち 20%混合）
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="mode"
+                      checked={gameMode === 'adult'}
+                      onChange={() => { setGameMode('adult'); sendDiff && sendDiff({ gameMode: 'adult' }); }}
+                    />
+                    アダルト（ちょいえっちのみ）
+                  </label>
+                </div>
+              </div>
+
+              <div className="mt-3">
                 <button className="btn" onClick={() => setShowSuggest(v => !v)}>
                   {showSuggest ? 'お題作成を閉じる' : 'お題を作成する'}
                 </button>
@@ -736,7 +778,7 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
 
 
       {isHostView && phase === PHASES.TOPIC_INPUT && (
-        <TopicInputPanel onCancel={() => setPhase(PHASES.LOBBY)} onStart={(qs) => {
+        <TopicInputPanel gameMode={gameMode} onCancel={() => setPhase(PHASES.LOBBY)} onStart={(qs) => {
           setRevealIdx(0);
           setVotes({});
           setLastRoundResult(null);
@@ -1006,16 +1048,20 @@ function uid() { return Math.random().toString(36).slice(2, 10); }
 -------------------------------------------------------------- */
 
 // お題入力パネル
-function TopicInputPanel({ onCancel, onStart }: { onCancel?: () => void; onStart: (questions: string[]) => void }) {
+function TopicInputPanel({ gameMode, onCancel, onStart }: { gameMode: 'normal'|'adult'; onCancel?: () => void; onStart: (questions: string[]) => void }) {
   const [freeText, setFreeText] = useState("");
   const [includeFree, setIncludeFree] = useState(true);
   // 5問生成：1/5 でエロ系、それ以外は通常。free を混ぜる場合はランダムで1問差し替え
   const buildQuestions = () => {
     const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
     const out: string[] = [];
-    for (let i = 0; i < 5; i++) {
-      const isEro = Math.random() < 0.2; // 5分の1でエロ
-      out.push(isEro ? pick(ERO_QUESTIONS) : pick(GENERAL_QUESTIONS));
+    if (gameMode === 'adult') {
+      for (let i = 0; i < 5; i++) out.push(pick(ERO_QUESTIONS));
+    } else {
+      for (let i = 0; i < 5; i++) {
+        const isEro = Math.random() < 0.2;
+        out.push(isEro ? pick(ERO_QUESTIONS) : pick(GENERAL_QUESTIONS));
+      }
     }
     if (includeFree && freeText.trim()) {
       const idx = Math.floor(Math.random() * out.length);
