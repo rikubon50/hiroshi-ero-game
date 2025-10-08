@@ -173,11 +173,15 @@ function FinalResults({ players, onBack }: { players: any[]; onBack?: () => void
 
 export default function App() {
   const [roomId] = useState(() => {
-    const url = new URL(window.location.href);
-    const q = url.searchParams.get('room');
+    const raw = window.location.search || '';
+    const cleaned = raw.replace(/amp;/g, ''); // tolerate links that contain literal `amp;`
+    const sp = new URLSearchParams(cleaned);
+    const q = sp.get('room');
     if (q && /^[A-Z0-9]{6,8}$/.test(q)) return q;
     const rid = Math.random().toString(36).slice(2, 8).toUpperCase();
-    url.searchParams.set('room', rid);
+    sp.set('room', rid);
+    const url = new URL(window.location.href);
+    url.search = sp.toString();
     window.history.replaceState({}, '', url.toString());
     return rid;
   });
@@ -188,8 +192,12 @@ export default function App() {
   const [hostId, setHostId] = useState<string | null>(null);
   const [isGuest] = useState(() => {
     try {
-      const url = new URL(window.location.href);
-      return url.searchParams.get('guest') === '1';
+      const raw = window.location.search || '';
+      // quick path: if raw contains `&amp;guest=1` or `?guest=1`
+      if (/(^|[?&]|&amp;)guest=1(&|$)/.test(raw)) return true;
+      const cleaned = raw.replace(/amp;/g, '');
+      const sp = new URLSearchParams(cleaned);
+      return sp.get('guest') === '1';
     } catch {
       return false;
     }
@@ -245,6 +253,60 @@ export default function App() {
   const skipNextPhaseSync = useRef(false);
   const skipNextLastRoundSync = useRef(false);
   const skipNextRevealSync = useRef(false);
+  const skipNextQuestionsSync = useRef(false);
+  // 初期ロード（localStorage からの再現）中かどうか
+  const hydratingRef = useRef(true);
+  // ---- Local snapshot rehydrate (on reload) ----
+  useEffect(() => {
+    const SNAP_KEY = `room:${roomId}:snapshot`;
+    try {
+      const raw = localStorage.getItem(SNAP_KEY);
+      if (!raw) { hydratingRef.current = false; return; }
+      const s = JSON.parse(raw);
+      if (s && typeof s === 'object') {
+        if (s.phase) setPhase(s.phase);
+        if (Array.isArray(s.questions)) setQuestions(s.questions);
+        if (Number.isInteger(s.currentQ)) setCurrentQ(s.currentQ);
+        if (Array.isArray(s.players)) setPlayers(s.players);
+        if (s.hostId) setHostId(s.hostId);
+        if (s.votes && typeof s.votes === 'object') setVotes(s.votes);
+        if (s.lastRoundResult !== undefined) setLastRoundResult(s.lastRoundResult);
+        if (Number.isInteger(s.revealIdx)) setRevealIdx(s.revealIdx);
+      }
+    } catch (e) {
+      console.warn('[snapshot] failed to load', e);
+    } finally {
+      // 次の tick で送信系エフェクトを解放
+      setTimeout(() => { hydratingRef.current = false; }, 0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]);
+
+  // ---- Persist snapshot (per room) ----
+  const saveTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (hydratingRef.current) return;
+    const SNAP_KEY = `room:${roomId}:snapshot`;
+    const save = () => {
+      const data = {
+        phase,
+        questions,
+        currentQ,
+        players,
+        hostId,
+        votes,
+        lastRoundResult,
+        revealIdx,
+      };
+      try { localStorage.setItem(SNAP_KEY, JSON.stringify(data)); } catch {}
+    };
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(save, 150);
+    return () => {
+      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    };
+  }, [roomId, phase, questions, currentQ, players, hostId, votes, lastRoundResult, revealIdx]);
 
   // 子コンポーネントから安全にブロードキャストするための関数
   const sendDiff = (diff: any) => {
@@ -278,6 +340,10 @@ export default function App() {
       isRemoteRef.current = true;
       if (payload.phase !== undefined) { skipNextPhaseSync.current = true; setPhase(payload.phase); }
       if (payload.currentQ !== undefined) { setCurrentQ(payload.currentQ); }
+      if (payload.questions !== undefined) {
+        skipNextQuestionsSync.current = true;
+        setQuestions(payload.questions || []);
+      }
       if (payload.votes !== undefined) {
         skipNextVotesSync.current = true;
         // 票はサーバ（orホスト）側の状態を正とし、常に置き換える
@@ -306,19 +372,24 @@ export default function App() {
 
   // 変更が起きたら差分を配信（受信起因の変更は送らない）
   useEffect(() => {
-    if (!syncRef.current || isRemoteRef.current) return;
+    if (!syncRef.current || isRemoteRef.current || hydratingRef.current) return;
     if (skipNextPhaseSync.current) { skipNextPhaseSync.current = false; return; }
     syncRef.current({ phase });
   }, [phase]);
-  useEffect(() => { if (syncRef.current && !isRemoteRef.current) syncRef.current({ currentQ }); }, [currentQ]);
+  useEffect(() => { if (syncRef.current && !isRemoteRef.current && !hydratingRef.current) syncRef.current({ currentQ }); }, [currentQ]);
   useEffect(() => {
-    if (!syncRef.current || isRemoteRef.current) return;
+    if (!syncRef.current || isRemoteRef.current || hydratingRef.current) return;
+    if (skipNextQuestionsSync.current) { skipNextQuestionsSync.current = false; return; }
+    syncRef.current({ questions });
+  }, [questions]);
+  useEffect(() => {
+    if (!syncRef.current || isRemoteRef.current || hydratingRef.current) return;
     if (skipNextVotesSync.current) { skipNextVotesSync.current = false; return; }
     syncRef.current({ votes });
   }, [votes]);
-  useEffect(() => { if (syncRef.current && !isRemoteRef.current && hostId) syncRef.current({ hostId }); }, [hostId]);
+  useEffect(() => { if (syncRef.current && !isRemoteRef.current && !hydratingRef.current && hostId) syncRef.current({ hostId }); }, [hostId]);
   useEffect(() => {
-    if (!syncRef.current || isRemoteRef.current) return;
+    if (!syncRef.current || isRemoteRef.current || hydratingRef.current) return;
     if (playersSyncTimer.current) window.clearTimeout(playersSyncTimer.current);
     playersSyncTimer.current = window.setTimeout(() => {
       // 名前編集中の連続更新を抑える
@@ -327,12 +398,12 @@ export default function App() {
     }, 250);
   }, [players]);
   useEffect(() => {
-    if (!syncRef.current || isRemoteRef.current) return;
+    if (!syncRef.current || isRemoteRef.current || hydratingRef.current) return;
     if (skipNextLastRoundSync.current) { skipNextLastRoundSync.current = false; return; }
     syncRef.current({ lastRoundResult });
   }, [lastRoundResult]);
   useEffect(() => {
-    if (!syncRef.current || isRemoteRef.current) return;
+    if (!syncRef.current || isRemoteRef.current || hydratingRef.current) return;
     if (skipNextRevealSync.current) { skipNextRevealSync.current = false; return; }
     syncRef.current({ revealIdx });
   }, [revealIdx]);
@@ -409,6 +480,7 @@ export default function App() {
           questions={questions}
           setQuestions={setQuestions}
           currentQ={currentQ}
+          setCurrentQ={setCurrentQ}
           everyoneAnswered={everyoneAnswered}
           tally={tally}
           lastRoundResult={lastRoundResult}
@@ -456,7 +528,7 @@ function Header({ roomId, phase, currentQ, total }: HeaderProps) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold">ひろしエロゲー｜みんなの“思ってるやつ”投票ゲーム</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">みんなの“思ってるやつ”投票ゲーム</h1>
         <p className="text-sm text-neutral-600">Room ID: <span className="font-mono">{roomId}</span> / 状態: {phaseLabel}</p>
         <div className="mt-2 flex flex-col gap-2">
           <p className="text-xs text-neutral-600">ゲームマスターになる人は下のリンクをコピーして、参加者に送ってね。</p>
@@ -485,7 +557,7 @@ function Header({ roomId, phase, currentQ, total }: HeaderProps) {
 // ------------------------------
 // プレーヤー疑似端末（複数人分の入力を 1 画面で）
 // ------------------------------
-function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, setVotes, nameOf, onlySelfId, hostId, roomId, questions, setQuestions, currentQ, everyoneAnswered, tally, lastRoundResult, setLastRoundResult, goNextQuestion, myId, sendDiff, revealIdx, setRevealIdx, showSuggest, setShowSuggest }: { players: any[]; setPlayers: React.Dispatch<React.SetStateAction<any[]>>; phase: string; setPhase: React.Dispatch<React.SetStateAction<string>>; question: string; votes: Record<string, any>; setVotes: React.Dispatch<React.SetStateAction<Record<string, any>>>; nameOf: (id: string) => string; onlySelfId?: string | null; hostId: string | null; roomId: string; questions: string[]; setQuestions: React.Dispatch<React.SetStateAction<string[]>>; currentQ: number; everyoneAnswered: boolean; tally: any; lastRoundResult: any; setLastRoundResult: React.Dispatch<React.SetStateAction<any>>; goNextQuestion: () => void; myId: string; sendDiff: (diff: any) => void; revealIdx: number; setRevealIdx: React.Dispatch<React.SetStateAction<number>>; showSuggest: boolean; setShowSuggest: React.Dispatch<React.SetStateAction<boolean>>; }) {
+function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, setVotes, nameOf, onlySelfId, hostId, roomId, questions, setQuestions, currentQ, setCurrentQ, everyoneAnswered, tally, lastRoundResult, setLastRoundResult, goNextQuestion, myId, sendDiff, revealIdx, setRevealIdx, showSuggest, setShowSuggest }: { players: any[]; setPlayers: React.Dispatch<React.SetStateAction<any[]>>; phase: string; setPhase: React.Dispatch<React.SetStateAction<string>>; question: string; votes: Record<string, any>; setVotes: React.Dispatch<React.SetStateAction<Record<string, any>>>; nameOf: (id: string) => string; onlySelfId?: string | null; hostId: string | null; roomId: string; questions: string[]; setQuestions: React.Dispatch<React.SetStateAction<string[]>>; currentQ: number; setCurrentQ: React.Dispatch<React.SetStateAction<number>>; everyoneAnswered: boolean; tally: any; lastRoundResult: any; setLastRoundResult: React.Dispatch<React.SetStateAction<any>>; goNextQuestion: () => void; myId: string; sendDiff: (diff: any) => void; revealIdx: number; setRevealIdx: React.Dispatch<React.SetStateAction<number>>; showSuggest: boolean; setShowSuggest: React.Dispatch<React.SetStateAction<boolean>>; }) {
   // 同票は同順位のグループ（少ない→多い＝最下位→1位）
   const groups = React.useMemo(() => {
     const m = new Map<number, string[]>();
@@ -534,6 +606,17 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
 
   return (
     <div className="space-y-4">
+      {phase !== PHASES.LOBBY && !alreadyJoined && (
+        <div className="rounded-2xl border bg-white p-4 shadow-sm">
+          <h2 className="font-semibold">ゲーム進行中</h2>
+          <p className="text-sm text-neutral-700 mt-1">
+            ただいまゲームが進行中です。次のゲーム開始（全員がロビーへ戻ったタイミング）から参加できます。
+          </p>
+          <p className="text-xs text-neutral-500 mt-2">
+            ※ この画面は待機画面です。ロビーに戻ると、名前を入力して参加ボタンが表示されます。
+          </p>
+        </div>
+      )}
       {phase === PHASES.LOBBY && (
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
           {myId === hostId ? (
@@ -654,10 +737,12 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
         <TopicInputPanel onCancel={() => setPhase(PHASES.LOBBY)} onStart={(qs) => {
           setRevealIdx(0);
           setVotes({});
-          sendDiff && sendDiff({ votes: {} });
           setLastRoundResult(null);
           setQuestions(qs);
+          setCurrentQ(0);
           setPhase(PHASES.IN_PROGRESS);
+          // 参加端末へお題セットと初期状態を配信
+          sendDiff && sendDiff({ questions: qs, votes: {}, revealIdx: 0, lastRoundResult: null, currentQ: 0, phase: PHASES.IN_PROGRESS });
         }} />
       )}
 
@@ -692,7 +777,7 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
         </div>
       )}
 
-      {isHostView && (phase === PHASES.REVEAL_FROM_BOTTOM || phase === PHASES.REVEAL_SECOND || phase === PHASES.REVEAL_FIRST) && currentGroup && (
+      {myId === hostId && (phase === PHASES.REVEAL_FROM_BOTTOM || phase === PHASES.REVEAL_SECOND || phase === PHASES.REVEAL_FIRST) && currentGroup && (
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
           <h2 className="font-semibold">結果発表：{revealIdx === 0 ? '最下位' : `${currentRank}位`}</h2>
           <div className="flex items-center gap-3 text-lg">
@@ -768,6 +853,7 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
         </div>
       )}
 
+      {/*
       {!isHostView && (phase === PHASES.REVEAL_FROM_BOTTOM || phase === PHASES.REVEAL_SECOND || phase === PHASES.REVEAL_FIRST) && currentGroup && (
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
           <h2 className="font-semibold">結果発表：{revealIdx === 0 ? '最下位' : `${currentRank}位`}</h2>
@@ -789,6 +875,7 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
           </div>
         </div>
       )}
+      */}
     </div>
   );
 }
@@ -803,14 +890,37 @@ function PlayerVoteCard({ self, players, value, onSubmit }: { self: Player; play
   return (
     <div className="rounded-xl border p-3">
       <div className="font-medium mb-2">{self.name} の投票</div>
-      <div className="flex flex-wrap gap-2">
-        {players.map(p => (
-          <button
-            key={p.id}
-            className={`chip ${targetId === p.id ? "chip-active" : ""}`}
-            onClick={() => setTargetId(p.id)}
-          >{p.name}</button>
-        ))}
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="投票対象">
+        {players.map(p => {
+          const active = targetId === p.id;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              className={
+                `px-3 py-1 rounded-full border transition focus:outline-none focus:ring-2 ` +
+                (active
+                  ? `bg-indigo-600 text-white border-indigo-600 ring-indigo-300 shadow-sm`
+                  : `bg-neutral-100 text-neutral-900 border-neutral-300 hover:bg-neutral-200`)
+              }
+              onClick={() => setTargetId(p.id)}
+            >
+              <span className="inline-flex items-center gap-2">
+                <span
+                  className={
+                    `inline-block w-2.5 h-2.5 rounded-full ` +
+                    (active ? `bg-white` : `bg-neutral-400`)
+                  }
+                  aria-hidden="true"
+                />
+                <span>{p.name}</span>
+                {active && <span className="ml-1 text-xs opacity-90">✓ 選択中</span>}
+              </span>
+            </button>
+          );
+        })}
       </div>
       <textarea
         id={`comment-${self.id}`}
