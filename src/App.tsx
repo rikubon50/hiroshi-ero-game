@@ -779,7 +779,7 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
         </div>
       )}
 
-      {myId === hostId && (phase === PHASES.REVEAL_FROM_BOTTOM || phase === PHASES.REVEAL_SECOND || phase === PHASES.REVEAL_FIRST) && currentGroup && (
+      {isHostView && (phase === PHASES.REVEAL_FROM_BOTTOM || phase === PHASES.REVEAL_SECOND || phase === PHASES.REVEAL_FIRST) && currentGroup && (
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
           <h2 className="font-semibold">結果発表：{revealIdx === 0 ? '最下位' : `${currentRank}位`}</h2>
           <div className="flex items-center gap-3 text-lg">
@@ -792,8 +792,6 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
             <ul className="space-y-1">
               {(tally.comments || []).filter((c: any) => currentGroup.playerIds.includes(c.targetId)).map((c: any, idx: number) => (
                 <li key={idx} className="text-sm">
-                  <span className="font-medium">{nameOf(c.voterId)}</span>
-                  <span className="text-neutral-600">：</span>
                   <span>{c.comment}</span>
                 </li>
               ))}
@@ -818,8 +816,15 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
                         .filter(([, v]: any) => firstTargets.includes(v?.targetId))
                         .map(([pid]) => pid)
                     : [];
-                  // スコア加点
-                  setPlayers(prev => prev.map(p => correctVoterIds.includes(p.id) ? { ...p, score: (p.score || 0) + 1 } : p));
+                  // スコア加点（同期を確実にするため即座に配信）
+                  const updatedPlayers = players.map(p =>
+                    correctVoterIds.includes(p.id)
+                      ? { ...p, score: (p.score || 0) + 1 }
+                      : p
+                  );
+                  setPlayers(updatedPlayers);
+                  // Realtime & 他端末に即反映
+                  sendDiff && sendDiff({ players: updatedPlayers });
                   // ラウンド結果を保存
                   setLastRoundResult({ firstTargets, correctVoterIds });
                   // 当たり/ハズレ表示へ
@@ -855,7 +860,6 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
         </div>
       )}
 
-      {/*
       {!isHostView && (phase === PHASES.REVEAL_FROM_BOTTOM || phase === PHASES.REVEAL_SECOND || phase === PHASES.REVEAL_FIRST) && currentGroup && (
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
           <h2 className="font-semibold">結果発表：{revealIdx === 0 ? '最下位' : `${currentRank}位`}</h2>
@@ -868,8 +872,6 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
             <ul className="space-y-1">
               {(tally.comments || []).filter((c: any) => currentGroup.playerIds.includes(c.targetId)).map((c: any, idx: number) => (
                 <li key={idx} className="text-sm">
-                  <span className="font-medium">{nameOf(c.voterId)}</span>
-                  <span className="text-neutral-600">：</span>
                   <span>{c.comment}</span>
                 </li>
               ))}
@@ -877,7 +879,6 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
           </div>
         </div>
       )}
-      */}
     </div>
   );
 }
@@ -1016,7 +1017,7 @@ function TopicInputPanel({ onCancel, onStart }: { onCancel?: () => void; onStart
       const isEro = Math.random() < 0.2; // 5分の1でエロ
       out.push(isEro ? pick(ERO_QUESTIONS) : pick(GENERAL_QUESTIONS));
     }
-    if (includeFree && freeText.trim() && Math.random() < 0.5) {
+    if (includeFree && freeText.trim()) {
       const idx = Math.floor(Math.random() * out.length);
       out[idx] = freeText.trim();
     }
