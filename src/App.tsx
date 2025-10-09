@@ -76,26 +76,31 @@ const GENERAL_QUESTIONS = [
 ];
 
 const ERO_QUESTIONS = [
-  "実は二の腕フェチな人",
-  "実はドSっぽい気質がありそうな人",
-  "実はドMっぽい気質がありそうな人",
-  "一晩の関係を経験していそうな人",
-  "Hの経験人数が多そうな人",
-  "Hがワンパターンそうな人",
-  "Hのテクニックが熟練していそうな人",
-  "別れ際に修羅場を作ったことがありそうな人",
-  "恋人以外の異性と二人きりで飲みに行きそうな人",
-  "夜の生活の回数が多そうな人",
-  "キスは自分から積極的にしそうな人",
-  "実は浮気がバレた経験がありそうな人",
-  "恋人の携帯をこっそり見てしまいそうな人",
-  "最近あんまりそういう機会がなくて悩んでいそうな人",
-  "本番よりもその前段階を重要視してくれそうな人",
-  "体の関係から恋人に発展しそうな人",
-  "恋人の過去の経験人数を気にしそうな人",
-  "SNSでこっそり異性を物色していそうな人",
-  "デート代は全て異性に奢ってもらいそうな人",
-  "実は身体の相性を最も重視しそうな人",
+  "視線が妙にエロい人",
+  "酔った勢いでキスしたことがありそうな人",
+  "ベッドよりソファ派っぽい人(エロい意味で)",
+  "エロい夢をよく見そうな人",
+  "LINEのアイコンがもうすでにエロい人",
+  "キスがうまそうな人",
+  "お風呂を一緒に入るのが好きそうな人",
+  "声だけで相手をドキッとさせそうな人",
+  "夜の駆け引きがうまそうな人",
+  "スローよりハードが好きそうな人",
+  "経験人数を言えなさそうな人",
+  "Hの時に主導権を握りたそうな人",
+  "恋人に『もっとして』って言わせそうな人",
+  "本気の恋と遊びを上手に使い分けそうな人",
+  "一晩の関係でも後悔しなさそうな人",
+  "体の相性をすごく重視しそうな人",
+  "普段はクールだけどギャップがありそうな人",
+  "押しに弱くて流されやすそうな人",
+  "人の恋人を奪ったことがありそうな人",
+  "耳元で囁くのが似合いそうな人",
+  "夜に豹変しそうな人",
+  "元恋人と今も連絡を取ってそうな人",
+  "ホテル街の場所をやたら詳しそうな人",
+  "酔うとスキンシップが増えそうな人",
+  "恋人との夜が濃厚そうな人",
 ];
 
 const PHASES = {
@@ -878,7 +883,7 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
         </div>
       )}
 
-      {isHostView && phase === PHASES.SHOW_CORRECT && lastRoundResult && (
+      {phase === PHASES.SHOW_CORRECT && lastRoundResult && (
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
           <h3 className="font-semibold">当てた人 / 外した人</h3>
           <p className="text-sm text-neutral-600">正解（1位）：{(lastRoundResult.firstTargets || []).map(nameOf).join('、')}</p>
@@ -894,11 +899,13 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
               </li>
             ))}
           </ul>
-          <div className="mt-3 flex gap-2">
-            <button className="btn" onClick={goNextQuestion}>
-              {currentQ >= questions.length - 1 ? '最終結果へ' : `第${currentQ + 2}問 開始`}
-            </button>
-          </div>
+          {isHostView && (
+            <div className="mt-3 flex gap-2">
+              <button className="btn" onClick={goNextQuestion}>
+                {currentQ >= questions.length - 1 ? '最終結果へ' : `第${currentQ + 2}問 開始`}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
