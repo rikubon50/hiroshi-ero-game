@@ -161,6 +161,7 @@ body {
   border: 1px solid rgba(255,255,255,.18);
   color: #eaeaff;
   box-shadow: 0 0 8px rgba(168,85,247,.25);
+  white-space: nowrap;
 }
 
 /* Radio-like chips inside vote card */
