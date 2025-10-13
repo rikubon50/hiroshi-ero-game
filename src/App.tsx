@@ -305,6 +305,7 @@ export default function App() {
     outcome: 'IMMUNITY' | 'DRINK_RIGHT' | 'DRINK_LEFT' | 'DRINK_SELF' | 'DRINK_ALL';
     revealed?: boolean;
     drinkers?: string[]; // 免除適用後に実際に飲む人
+    startedAt?: number;   // ルーレット開始時刻（スロットリング対策）
   }>(null);
 
   // 今回のゲーム内の飲み回避権（プレイヤーID→残数）
@@ -521,14 +522,22 @@ export default function App() {
   useEffect(() => {
     if (phase !== PHASES.SHOW_CORRECT) return;
     if (!roulette || roulette.revealed) return;
-    const t = window.setTimeout(() => {
+
+    const SPIN_MS = 900; // 基本スピン演出時間
+    const startedAt = (roulette as any).startedAt ?? Date.now();
+    const remaining = Math.max(0, SPIN_MS - (Date.now() - startedAt));
+
+    const reveal = () => {
+      // すでに処理済みなら何もしない
+      if (!roulette || roulette.revealed) return;
+
       // ルーレット由来の候補（※チケットでは回避できない）
       let wheelDrinkers: string[] = [];
       if (roulette.outcome === 'DRINK_RIGHT') {
-        // 右隣：アナウンスのみ。演出は誰にも出さない
+        // 右隣：アナウンスのみ（誰にも飲み演出は付けない）
         wheelDrinkers = [];
       } else if (roulette.outcome === 'DRINK_LEFT') {
-        // 左隣：アナウンスのみ。演出は誰にも出さない
+        // 左隣：アナウンスのみ
         wheelDrinkers = [];
       } else if (roulette.outcome === 'DRINK_SELF') {
         wheelDrinkers = [roulette.targetId];
@@ -536,7 +545,7 @@ export default function App() {
         wheelDrinkers = players.map(p => p.id);
       }
 
-      // 投票ハズレ（正解できなかった人）由来の候補（※チケットで回避可能）
+      // 投票ハズレ（正解できなかった人）由来（※チケットで回避可能）
       const losers = (lastRoundResult && Array.isArray((lastRoundResult as any).correctVoterIds))
         ? players.filter((p: Player) => !(lastRoundResult as any).correctVoterIds.includes(p.id)).map(p => p.id)
         : [];
@@ -568,8 +577,34 @@ export default function App() {
       setImmunity(newImmunity);
       setRoulette(nextRoulette);
       if (syncRef.current) syncRef.current({ immunity: newImmunity, roulette: nextRoulette });
-    }, 900);
-    return () => window.clearTimeout(t);
+
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+
+    const timer = window.setTimeout(reveal, remaining);
+
+    // 非表示タブで setTimeout が極端に遅延する対策：復帰時に経過で即判定
+    const onVisible = () => {
+      if (!document.hidden) {
+        const elapsed = Date.now() - startedAt;
+        if (elapsed >= SPIN_MS) {
+          reveal();
+          window.clearTimeout(timer);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    // 念のためのフェイルセーフ（極端なスロットリング対策）
+    const failsafe = window.setTimeout(() => {
+      onVisible();
+    }, SPIN_MS + 1200);
+
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(failsafe);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [phase, roulette, players, immunity, lastRoundResult]);
 
   // ★ Safety: ロビーに居るときは必ずローカルのスコアを0に（リロードで古いスナップショットを掴んでも矯正）
@@ -1169,7 +1204,7 @@ function PlayersSim({
                     const targetId = correctVoterIds[Math.floor(Math.random() * correctVoterIds.length)];
                     const wheel: Array<'IMMUNITY'|'IMMUNITY'|'DRINK_RIGHT'|'DRINK_LEFT'|'DRINK_SELF'|'DRINK_ALL'> = ['IMMUNITY','IMMUNITY','DRINK_RIGHT','DRINK_LEFT','DRINK_SELF','DRINK_ALL'];
                     const outcome = wheel[Math.floor(Math.random() * wheel.length)];
-                    const r = { round: currentQ, targetId, outcome, revealed: false } as const;
+                    const r = { round: currentQ, targetId, outcome, revealed: false, startedAt: Date.now() } as const;
                     setRoulette(r);
                     sendDiff && sendDiff({ roulette: r });
                   } else {
