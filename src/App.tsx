@@ -524,9 +524,11 @@ export default function App() {
       // ルーレット由来の候補（※チケットでは回避できない）
       let wheelDrinkers: string[] = [];
       if (roulette.outcome === 'DRINK_RIGHT') {
-        const r = rightOf(roulette.targetId); if (r) wheelDrinkers = [r];
+        // 右隣：アナウンスのみ。演出は誰にも出さない
+        wheelDrinkers = [];
       } else if (roulette.outcome === 'DRINK_LEFT') {
-        const l = leftOf(roulette.targetId); if (l) wheelDrinkers = [l];
+        // 左隣：アナウンスのみ。演出は誰にも出さない
+        wheelDrinkers = [];
       } else if (roulette.outcome === 'DRINK_SELF') {
         wheelDrinkers = [roulette.targetId];
       } else if (roulette.outcome === 'DRINK_ALL') {
@@ -612,17 +614,6 @@ export default function App() {
   // 表示用ユーティリティ
   const nameOf = (pid: string) => players.find(p => p.id === pid)?.name ?? "?";
 
-  const rightOf = (pid: string) => {
-    const idx = players.findIndex(p => p.id === pid);
-    if (idx < 0 || players.length === 0) return null;
-    return players[(idx + 1) % players.length]?.id || null;
-  };
-
-  const leftOf = (pid: string) => {
-    const idx = players.findIndex(p => p.id === pid);
-    if (idx < 0 || players.length === 0) return null;
-    return players[(idx - 1 + players.length) % players.length]?.id || null;
-  };
 
   // 次ラウンドへ
   const goNextQuestion = () => {
@@ -1200,8 +1191,12 @@ function PlayersSim({
           ) : (
             <div className="mt-3 p-3 rounded-xl border bg-neutral-50">
               {roulette.outcome === 'IMMUNITY' && (<span>当たり！<b>飲み回避権 +1</b> を獲得 🎟️</span>)}
-              {roulette.outcome === 'DRINK_RIGHT' && (<span><b>右隣の人が飲み</b> 🍻</span>)}
-              {roulette.outcome === 'DRINK_LEFT' && (<span><b>左隣の人が飲み</b> 🍻</span>)}
+              {roulette.outcome === 'DRINK_RIGHT' && (
+                <span><b>{displayName(roulette.targetId)}の右隣の人は飲み</b> 🍻</span>
+              )}
+              {roulette.outcome === 'DRINK_LEFT' && (
+                <span><b>{displayName(roulette.targetId)}の左隣の人は飲み</b> 🍻</span>
+              )}
               {roulette.outcome === 'DRINK_SELF' && (<span><b>自分が飲み</b> 🥤</span>)}
               {roulette.outcome === 'DRINK_ALL' && (<span><b>全員で飲み</b> 🍺</span>)}
             </div>
