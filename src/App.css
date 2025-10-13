@@ -132,6 +132,7 @@ body {
   color:#0b0b12;
   box-shadow:0 0 15px rgba(168,85,247,.3);
   transition: filter .15s ease, transform .06s ease;
+  white-space: nowrap;
 }
 .btn:hover{filter:brightness(1.05)}
 .btn:active{transform: translateY(1px) scale(.99)}
