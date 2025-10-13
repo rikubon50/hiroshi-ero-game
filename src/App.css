@@ -1,42 +1,253 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+/* === Mini Tailwind + Components (ひろしエロゲー用) ======================= */
+/* カラーテーマ */
+:root{
+  --bg: #0b0b12;
+  --panel: #141429;
+  --ink-900:#e7e7ff; --ink-700:#b5b6d2; --ink-600:#9aa0b4; --ink-500:#74789d;
+  --brand:#a855f7; /* neon purple */
+  --brand-300:#22d3ee; /* cyan accent */
+  --muted-border: rgba(255,255,255,.1);
+  --ring: rgba(168,85,247,.35);
+  --amber-50:#251a00; --amber-100:#3b2f07; --amber-900:#ffd500;
+  --emerald-50:#08291c; --emerald-900:#00ffb7;
+  --shadow-sm: 0 2px 10px rgba(168,85,247,.15);
+  --shadow-2xl: 0 8px 28px rgba(0,0,0,.35);
+  --radius: 14px;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+*{box-sizing:border-box}
+html,body,#root{height:100%}
+body {
+  margin:0;
+  font-family: ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans JP","Helvetica Neue",Arial;
+  background: radial-gradient(1000px 600px at 80% -20%, rgba(168,85,247,.15), transparent 70%), radial-gradient(800px 500px at -20% 100%, rgba(34,211,238,.15), transparent 70%), var(--bg);
+  color:var(--ink-900);
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/* ===== Utility subset（このアプリで使う分だけ） ===== */
+/* layout */
+.min-h-dvh{min-height:100dvh}
+.mx-auto{margin-left:auto;margin-right:auto}
+.max-w-5xl{max-width:64rem}
+.flex{display:flex}.inline-flex{display:inline-flex}
+.grid{display:grid}
+.flex-col{flex-direction:column}
+.items-center{align-items:center}.items-end{align-items:flex-end}
+.justify-between{justify-content:space-between}
+.gap-2{gap:.5rem}.gap-3{gap:.75rem}.gap-4{gap:1rem}
+.grid.sm\:grid-cols-2{grid-template-columns:1fr}
+.md\:grid-cols-2{grid-template-columns:repeat(2, minmax(0,1fr))}
+.space-y-6> *+*{margin-top:1.5rem}
+
+/* responsive */
+@media (min-width: 640px){
+  .sm\:flex-row{flex-direction:row}
+  .sm\:items-end{align-items:flex-end}
+  .sm\:justify-between{justify-content:space-between}
+  .sm\:grid-cols-2{grid-template-columns:repeat(2, minmax(0,1fr))}
+}
+@media (min-width: 768px){
+  .md\:p-8{padding:2rem}
+  .md\:text-3xl{font-size:1.875rem;line-height:2.25rem}
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+/* spacing */
+.p-4{padding:1rem}.p-3{padding:.75rem}
+.px-3{padding-left:.75rem;padding-right:.75rem}
+.py-1{padding-top:.25rem;padding-bottom:.25rem}
+.px-8{padding-left:2rem;padding-right:2rem}
+.py-6{padding-top:1.5rem;padding-bottom:1.5rem}
+.mt-1{margin-top:.25rem}.mt-2{margin-top:.5rem}.mt-3{margin-top:.75rem}.mt-4{margin-top:1rem}
+.mb-1{margin-bottom:.25rem}.mb-2{margin-bottom:.5rem}
+
+/* size/width */
+.w-40{width:10rem}.w-28{width:7rem}.w-8{width:2rem}.w-2\.5{width:.625rem}.h-2\.5{height:.625rem}
+.text-right{text-align:right}
+
+/* typography */
+.text-2xl{font-size:1.5rem;line-height:2rem}
+.text-lg{font-size:1.125rem;line-height:1.75rem}
+.text-sm{font-size:.95rem;line-height:1.35rem}
+.text-xs{font-size:.75rem;line-height:1rem}
+.font-bold{font-weight:700}.font-semibold{font-weight:600}.font-medium{font-weight:500}
+.text-neutral-900{color:var(--ink-900)}
+.text-neutral-700{color:#e0e2ff}
+.text-neutral-600{color:#c8cbe6}
+.text-neutral-500{color:var(--ink-500)}
+.text-white{color:#fff}
+.whitespace-nowrap{white-space:nowrap}
+.font-mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace}
+
+/* color/bg/border/shadow/radius */
+.bg-white{background:var(--panel)}
+.bg-neutral-50{background:transparent}
+.bg-neutral-100{background: rgba(255,255,255,.06)}
+.bg-neutral-200{background: rgba(255,255,255,.12)}
+.bg-amber-50{background:var(--amber-50)}
+.bg-emerald-50{background:var(--emerald-50)}
+.border{border:1px solid var(--muted-border)}
+.border-neutral-300{border-color:#d4d4d4}
+.border-indigo-600{border-color:var(--brand)}
+.rounded-full{border-radius:9999px}
+.rounded-xl{border-radius:12px}
+.rounded-2xl{border-radius:16px}
+.rounded-3xl{border-radius:24px}
+.shadow-sm{box-shadow:var(--shadow-sm)}
+.shadow-2xl{box-shadow:var(--shadow-2xl)}
+
+/* state-ish */
+.hover\:bg-neutral-200:hover{background:#e5e5e5}
+.bg-indigo-600{background:var(--brand)}
+.text-amber-900{color:var(--amber-900)}
+.text-emerald-900{color:var(--emerald-900)}
+.ring-indigo-300{box-shadow:0 0 0 2px var(--brand-300)}
+.focus\:outline-none:focus{outline: none}
+.focus\:ring-2:focus{box-shadow:0 0 0 2px var(--ring)}
+
+/* position helpers used by drinkFx */
+.fixed{position:fixed}.inset-0{inset:0}
+.pointer-events-none{pointer-events:none}
+.pointer-events-auto{pointer-events:auto}
+
+/* Tailwindの「/50」風（使ってるのは amber-100/50 だけ） */
+.bg-amber-100\/50{background-color: rgba(254, 243, 199, .5)}
+
+/* ===== Components ================================================== */
+
+/* container spacing (page root) */
+.p-4{padding:1rem}
+
+/* Page container: centered and responsive width */
+.mx-auto.max-w-5xl{
+  width: clamp(320px, 92vw, 1024px);
+  margin-inline: auto;
 }
 
-.card {
-  padding: 2em;
+/* Buttons */
+.btn {
+  display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
+  padding:.7rem 1rem; border-radius:12px; border:1px solid transparent;
+  font-weight:700; letter-spacing:.01em; cursor:pointer;
+  background: linear-gradient(90deg, var(--brand), var(--brand-300));
+  color:#0b0b12;
+  box-shadow:0 0 15px rgba(168,85,247,.3);
+  transition: filter .15s ease, transform .06s ease;
+}
+.btn:hover{filter:brightness(1.05)}
+.btn:active{transform: translateY(1px) scale(.99)}
+.btn[disabled]{opacity:.5; cursor:not-allowed}
+.btn-primary {
+  background: linear-gradient(90deg, var(--brand-300), var(--brand));
+  color:#0b0b12;
 }
 
-.read-the-docs {
-  color: #888;
+/* Inputs */
+.input, .textarea{
+  width:100%; padding:.7rem .85rem; border-radius:12px;
+  background:#0f0f20; color:var(--ink-900);
+  border:1px solid rgba(255,255,255,.14);
+}
+.textarea{min-height:84px; resize:vertical}
+
+/* Pills / Badge */
+
+.badge{
+  display:inline-flex; align-items:center; gap:.35rem;
+  padding:.25rem .55rem; border-radius:999px;
+  font-size:.75rem; font-weight:600;
+  /* Vote count pill */
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.18);
+  color: #eaeaff;
+  box-shadow: 0 0 8px rgba(168,85,247,.25);
+}
+
+/* Radio-like chips inside vote card */
+button[role="radio"] {
+  transition: transform .06s ease, box-shadow .2s ease, background-color .15s ease;
+  min-width: 48px;
+  padding-inline: 1rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255,255,255,.25);
+  background: rgba(255,255,255,.05);
+  color: rgba(255,255,255,.7);
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+button[role="radio"]:hover {
+  background: rgba(255,255,255,.12);
+  color: #fff;
+}
+button[role="radio"][aria-checked="true"] {
+  background: linear-gradient(90deg, var(--brand-300), var(--brand));
+  color: #0b0b12;
+  border-color: transparent;
+  box-shadow: 0 0 12px rgba(168,85,247,.4);
+}
+button[role="radio"]:active{transform: translateY(1px)}
+button[role="radio"] span[aria-hidden="true"] {
+  display: none;
+}
+
+/* Headings spacing tweaks */
+h1,h2,h3,h4{margin:0}
+h2.font-semibold{margin-bottom:.25rem}
+
+/* Nice panel default */
+.rounded-2xl.border.bg-white.p-4.shadow-sm{
+  background: rgba(17,17,27,.72);
+  border:1px solid rgba(255,255,255,.12);
+  backdrop-filter: blur(8px);
+  color: var(--ink-900);
+  box-shadow: 0 6px 22px rgba(0,0,0,.28);
+}
+
+/* Beer FX animations (from the code’s <style>) */
+@keyframes keg-pop{0%{transform:scale(.7);opacity:0}40%{transform:scale(1.15);opacity:1}60%{transform:scale(.95)}100%{transform:scale(1);opacity:1}}
+@keyframes beer-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+@keyframes flash-bg{0%{opacity:0}25%{opacity:.75}100%{opacity:0}}
+
+/* Convenience: small “list-inside/decimal” look */
+.list-decimal{list-style:decimal}
+.list-inside{padding-left:1rem}
+
+/* Minor helpers used in text */
+.inline-block{display:inline-block}
+
+/* ===== Page header polish ===== */
+h1.text-2xl{letter-spacing:.02em}
+ul, ol { list-style: none; padding-left: 0; margin-left: 0; }
+
+/* Comment container polish */
+.rounded-xl.border.p-2{
+  background: rgba(255,255,255,.03);
+  border-color: rgba(255,255,255,.16);
+  color: var(--ink-900);
+  padding: 0.8rem 1rem;
+  overflow: hidden;
+}
+
+/* Defensive: disable global flash overlay */
+.bg-amber-100\/50{ background-color: transparent; }
+
+/* Drink FX toast: compact glow */
+.pointer-events-none > .pointer-events-auto.shadow-2xl{
+  box-shadow: 0 10px 24px rgba(0,0,0,.32), 0 0 0 rgba(0,0,0,0);
+}
+
+/* Keep drink-fx toast below content and prevent overlap */
+.mt-4.flex.items-center.justify-center.w-full.pointer-events-none{
+  margin-top: 24px;
+  margin-bottom: 8px;
+  position: static !important;
+  z-index: 0 !important;
+  clear: both;
+}
+.mt-4.flex.items-center.justify-center.w-full.pointer-events-none > .pointer-events-auto{
+  position: relative;
+  z-index: 0;
+}
+/* Avoid any residual full-bleed backglow from the toast */
+.mt-4.flex.items-center.justify-center.w-full.pointer-events-none > .pointer-events-auto.shadow-2xl{
+  box-shadow: 0 8px 18px rgba(0,0,0,.35);
 }

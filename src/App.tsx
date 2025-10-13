@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import './App.css';
 
 import { supabase } from './lib/supabase';
 
@@ -1286,23 +1287,17 @@ function PlayersSim({
         <>
           <style>
             {`
-              @keyframes keg-pop { 0% { transform: scale(0.7); opacity: 0; } 40% { transform: scale(1.15); opacity: 1; } 60% { transform: scale(0.95); } 100% { transform: scale(1); opacity: 1; } }
-              @keyframes beer-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
-              @keyframes flash-bg { 0% { opacity: 0; } 25% { opacity: .75; } 100% { opacity: 0; } }
+              @keyframes keg-pop { 0% { transform: scale(0.7); opacity: 0; } 40% { transform: scale(1.08); opacity: 1; } 60% { transform: scale(0.98); } 100% { transform: scale(1); opacity: 1; } }
+              @keyframes beer-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
             `}
           </style>
-          {/* 背景フラッシュを少し強め・長めに */}
-          <div className="fixed inset-0 pointer-events-none bg-amber-100/50" style={{ animation: 'flash-bg 1.4s ease-out' }} />
-          {/* 大きめの中央トースト */}
-          <div className="fixed inset-0 pointer-events-none flex items-center justify-center">
+          <div className="pointer-events-none mt-4 flex items-center justify-center w-full">
             <div
-              className="pointer-events-auto rounded-3xl border bg-white/95 shadow-2xl px-8 py-6 flex items-center gap-4"
-              style={{ animation: 'keg-pop 600ms ease-out' }}
+              className="pointer-events-auto rounded-3xl border bg-white/90 shadow-2xl px-8 py-6 flex items-center gap-4"
+              style={{ animation: 'keg-pop 600ms ease-out', maxWidth: 'fit-content' }}
             >
-              <div style={{ fontSize: 52, animation: 'beer-bounce 1.1s ease-in-out infinite' }}>🍺</div>
-              <div>
-                <div className="text-2xl font-extrabold text-rose-700">飲み確定！</div>
-              </div>
+              <div style={{ fontSize: 48, animation: 'beer-bounce 1.1s ease-in-out infinite' }}>🍺</div>
+              <div className="text-2xl font-extrabold text-rose-700">飲み確定！</div>
             </div>
           </div>
         </>
