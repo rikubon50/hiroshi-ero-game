@@ -977,6 +977,8 @@ function PlayersSim({
                   <li>コメントは必須。回答が揃ったらGMがゲームを進行してくれるので自分の画面で結果を確認します。</li>
                   <li>1位に投票できていたら正解。ハズレの人は罰ゲーム。</li>
                   <li>ゲーム終了時の正答数で最終順位を決めます。最下位の人は罰ゲームです。</li>
+                  <li>正解者の中からランダムで1人に「ルーレットチャンス」。結果は <span className="whitespace-nowrap">6分の2で飲み回避チケット+1</span>、<span className="whitespace-nowrap">6分の1で右隣が飲み</span>、<span className="whitespace-nowrap">6分の1で左隣が飲み</span>、<span className="whitespace-nowrap">6分の1で自分が飲み</span>、<span className="whitespace-nowrap">6分の1で全員で飲み</span>。</li>
+                  <li>飲み回避チケット（🎟️）：所持上限は1枚。投票でのハズレは自動で1枚消費して回避。<span className="whitespace-nowrap">※ルーレットで指名された飲みは回避不可</span>。</li>
                 </ol>
               </div>
 
@@ -1026,6 +1028,8 @@ function PlayersSim({
                   <li>コメントは必須。回答が揃ったらGMがゲームを進行してくれるので自分の画面で結果を確認します。</li>
                   <li>1位に投票できていたら正解。ハズレの人は罰ゲーム。</li>
                   <li>ゲーム終了時の正答数で最終順位を決めます。最下位の人は罰ゲームです。</li>
+                  <li>正解者の中からランダムで1人に「ルーレットチャンス」。結果は <span className="whitespace-nowrap">6分の2で飲み回避チケット+1</span>、<span className="whitespace-nowrap">6分の1で右隣が飲み</span>、<span className="whitespace-nowrap">6分の1で左隣が飲み</span>、<span className="whitespace-nowrap">6分の1で自分が飲み</span>、<span className="whitespace-nowrap">6分の1で全員で飲み</span>。</li>
+                  <li>飲み回避チケット（🎟️）：所持上限は1枚。投票でのハズレは自動で1枚消費して回避。<span className="whitespace-nowrap">※ルーレットで指名された飲みは回避不可</span>。</li>
                 </ol>
               </div>
               <div className="mt-3">
