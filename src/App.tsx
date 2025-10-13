@@ -618,6 +618,10 @@ export default function App() {
 
   // 次ラウンドへ
   const goNextQuestion = () => {
+    // Block progressing until roulette result is revealed (if present)
+    if (phase === PHASES.SHOW_CORRECT && roulette && !roulette.revealed) {
+      return;
+    }
     const next = currentQ + 1;
     // ルーレット状態をクリア
     setRoulette(null);
@@ -661,7 +665,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-dvh bg-neutral-50 text-neutral-900 p-4 md:p-8">
+    <div className="bg-neutral-50 text-neutral-900 p-4 md:p-8" style={{ minHeight: '100svh' }}>
       <div className="mx-auto max-w-5xl space-y-6">
         <Header roomId={roomId} phase={phase} currentQ={currentQ} total={questions.length} />
         <PlayersSim
@@ -1235,8 +1239,15 @@ function PlayersSim({
           })()}
           {isHostView && (
             <div className="mt-3 flex gap-2">
-              <button className="btn" onClick={goNextQuestion}>
-                {currentQ >= questions.length - 1 ? '最終結果へ' : `第${currentQ + 2}問 開始`}
+              <button
+                className="btn"
+                onClick={goNextQuestion}
+                disabled={!!roulette && !roulette.revealed}
+                title={!!roulette && !roulette.revealed ? 'ルーレット結果待ち' : undefined}
+              >
+                {(roulette && !roulette.revealed)
+                  ? 'ルーレット結果待ち…'
+                  : (currentQ >= questions.length - 1 ? '最終結果へ' : `第${currentQ + 2}問 開始`)}
               </button>
             </div>
           )}

@@ -16,11 +16,15 @@
 }
 
 *{box-sizing:border-box}
-html,body,#root{height:100%}
+html,body,#root{
+  height:100%;
+  min-height:100svh; /* iOS/Safari safe viewport */
+  background-color:#0b0b12;
+  overflow-x:hidden;
+}
 body {
   margin:0;
   font-family: ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans JP","Helvetica Neue",Arial;
-  background: radial-gradient(1000px 600px at 80% -20%, rgba(168,85,247,.15), transparent 70%), radial-gradient(800px 500px at -20% 100%, rgba(34,211,238,.15), transparent 70%), var(--bg);
   color:var(--ink-900);
 }
 
@@ -252,4 +256,19 @@ ul, ol { list-style: none; padding-left: 0; margin-left: 0; }
 /* Avoid any residual full-bleed backglow from the toast */
 .mt-4.flex.items-center.justify-center.w-full.pointer-events-none > .pointer-events-auto.shadow-2xl{
   box-shadow: 0 8px 18px rgba(0,0,0,.35);
+}
+
+/* --- Full-viewport background safety (fix bottom cutoff) --- */
+body::before{
+  content:"";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 60% at 100% 0%, rgba(168,85,247,.18), transparent 60%),
+    radial-gradient(40% 40% at 0% 100%, rgba(34,211,238,.15), transparent 60%),
+    linear-gradient(180deg, #0b0b12 0%, #0b0b12 100%);
+  background-repeat: no-repeat;
+  background-size: cover;
 }
