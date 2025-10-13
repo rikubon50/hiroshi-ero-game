@@ -930,7 +930,7 @@ function PlayersSim({
                       checked={gameMode === 'normal'}
                       onChange={() => { setGameMode('normal'); sendDiff && sendDiff({ gameMode: 'normal' }); }}
                     />
-                    普通（おもしろ + ちょいえっち 20%混合）
+                    普通
                   </label>
                   <label className="inline-flex items-center gap-2">
                     <input
@@ -939,7 +939,7 @@ function PlayersSim({
                       checked={gameMode === 'adult'}
                       onChange={() => { setGameMode('adult'); sendDiff && sendDiff({ gameMode: 'adult' }); }}
                     />
-                    アダルト（ちょいえっちのみ）
+                    アダルト
                   </label>
                   <label className="inline-flex items-center gap-2">
                     <input
@@ -948,7 +948,7 @@ function PlayersSim({
                       checked={gameMode === 'oni'}
                       onChange={() => { setGameMode('oni'); sendDiff && sendDiff({ gameMode: 'oni' }); }}
                     />
-                    鬼アダルト（超刺激）
+                    鬼アダルト
                   </label>
                 </div>
               </div>
@@ -980,10 +980,10 @@ function PlayersSim({
                   disabled={!(iAmInPlayers && players.length >= 2)}
                   onClick={() => { setPhase(PHASES.TOPIC_INPUT); }}
                 >参加者が揃ったらタップでゲーム開始！</button>
-                {!(iAmInPlayers && players.length >= 2) && (
-                  <span className="text-sm text-neutral-600">※ GMが参加し、参加者2人以上で開始できます</span>
-                )}
               </div>
+              {!(iAmInPlayers && players.length >= 2) && (
+                <p className="mt-2 text-sm text-neutral-600">※ GMが参加し、参加者2人以上で開始できます</p>
+              )}
             </>
           ) : (
             <>
@@ -1063,7 +1063,7 @@ function PlayersSim({
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
           <h2 className="font-semibold">Q：{question}</h2>
           <p className="text-sm text-neutral-600">「最もみんなが選びそうな人」を選択し、理由をコメントで必須入力</p>
-          <div className="mt-3 grid md:grid-cols-2 gap-3">
+          <div className="mt-3 grid grid-cols-1 gap-3">
             {visiblePlayers.map(p => (
               <PlayerVoteCard
                 key={p.id}
@@ -1314,7 +1314,7 @@ function PlayerVoteCard({ self, players, value, onSubmit, immunity }: { self: Pl
   const canSubmit = targetId && comment.trim().length > 0;
 
   return (
-    <div className="rounded-xl border p-3">
+    <div className="rounded-xl border p-3 w-full">
       <div className="font-medium mb-2">{self.name} の投票</div>
       <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="投票対象">
         {players.map(p => {
