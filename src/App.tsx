@@ -103,6 +103,66 @@ const ERO_QUESTIONS = [
   "恋人との夜が濃厚そうな人",
 ];
 
+const ONI_QUESTIONS = [
+  "密かにSMプレイに強い憧れがありそうな人",
+  "酔っているのを利用して誘惑しそうな人",
+  "Hの時、相手を縛ったり目隠しをしたりしたい願望がありそうな人",
+  "特定の職業や制服のコスプレに対する強いフェチがありそうな人",
+  "Hの時、カメラやスマホで記録されることに抵抗がない人",
+  "『複数人で同時に行為に及ぶ』経験に強い興味がありそうな人",
+  "『自慰行為』を毎日していそうな人",
+  "性的な要求(頻度の高さ)を断る異性に対して内心イラッとしそうな人",
+  "勝負下着を着てきてそうな人",
+  "恋愛欲より性欲の方が圧倒的に強そうな人",
+  "『相手に完全にバレずに浮気を成功させた』経験がありそうな人",
+  "自分の性的な動画や写真を誰かに見られたことがありそうな人",
+  "一夜限りの関係を目的としてSNSでDMしてそうな人",
+  "職場や学校で不適切な関係を持ったことがありそうな人",
+  "ホテル以外の予想外の場所でHしたことがありそうな人",
+  "酔った相手を介抱している最中に性的な感情を抱いていそうな人(ダメだよ正々堂々と行こうね)",
+  "家族や友人に絶対に知られたくない性癖を持っていそうな人",
+  "別れ話の際に『最後に1発』とお願いしたことがありそうな人",
+  "過去の恋人に『この行為は二度としないで』と真剣に怒られたことがありそうな人",
+  "体に歯形がつくほどの激しそうな人",
+  "避妊を無視して行為に及んだことがありそうな人(ダメだよ)",
+  "『浮気がバレたら』の言い訳を常に考えていそうな人",
+  "同性の友人の裸を見て性的な感情を抱いたことがありそうな人(全然問題ないよ！)",
+  "自分の性の処理のために誰かを『利用』した経験がありそうな人",
+  "『性的な相性』が合わないとわかった瞬間に別れを決意しそうな人",
+  "『愛がなくても体の相性が合えば付き合える』と思う人",
+  "愛よりもセックスの技巧を重要視しそうな人",
+  "『自分は性的なカリスマ性がある』と勘違いしていそうな人",
+  "お金を払ってでも自分の性の願望を叶えたいと思ったことがありそうな人",
+  "Hの前に『必ずこの準備をする』という独自のルーティンがありそうな人",
+  "自分の体の最も敏感な部分を隠さずに言えそうな人",
+  "自分は相手のすべてを支配したい欲求が強い人",
+  "このメンバーの中で一番Hな秘密を持っていそうな人",
+  "ぶっちゃけ、今この場にいる誰かと『体の関係を持ちたい』と真剣に願ってそうな人",
+  "今日避妊具持ってきてそうな人(Hする前提できてそうな人)",
+  "道具を使ってするのが好きそうな人",
+  "親や兄弟に性的な行為を見られたことがありそうな人",
+  "酔った勢いでキスしそうな人",
+  "このゲームで完全にスイッチが入ってしまってそうな人",
+  "『今から二人きりで飲みに行こう』と誘われたら断らなそうな人",
+  "間接キスに抵抗がなさそうな人",
+  "異性の肩に頭を乗せて甘えたがりそうな人",
+  "鎖骨を触られたそうな人(性感帯が鎖骨っぽい)",
+  "最もエロい手の握り方をしそうな人",
+  "『抱きしめて』と甘えて許されそうな人",
+  "キスなら人前でしてもいいよと思ってそうな雰囲気がある人",
+  "『もう終電ないよね？』と言いだしそうな人",
+  "Hの前に『キスの練習』をしておきたそうな人",
+  "人の胸筋を触っても許されそうな人",
+  "ぶっちゃけ、今『この場で誰かの下着を覗き見たい』と願ってそうな人",
+  "騎乗位好きそうな人",
+  "バックが好きそうな人",
+  "前戯にめちゃくちゃ時間かけそうな人",
+  "前戯が強引で微妙そうな人",
+  "めちゃくちゃ前戯焦らしそうな人",
+  "すごい喘ぎそうな人",
+  "イクのが早そうな人",
+];
+
 const PHASES = {
   LOBBY: "LOBBY", // 参加者集合（ルール表示もここで）
   TOPIC_INPUT: "TOPIC_INPUT", // お題入力（自由記述）
@@ -237,17 +297,37 @@ export default function App() {
   const [lastRoundResult, setLastRoundResult] = useState(null);
   const [revealIdx, setRevealIdx] = useState(0);
 
-  const [gameMode, setGameMode] = useState<'normal' | 'adult'>('normal');
+  // ルーレット状態（1問ごとに正解者から1人抽選）
+  const [roulette, setRoulette] = useState<null | {
+    round: number;
+    targetId: string;
+    outcome: 'IMMUNITY' | 'DRINK_RIGHT' | 'DRINK_LEFT' | 'DRINK_SELF' | 'DRINK_ALL';
+    revealed?: boolean;
+    drinkers?: string[]; // 免除適用後に実際に飲む人
+  }>(null);
+
+  // 今回のゲーム内の飲み回避権（プレイヤーID→残数）
+  const [immunity, setImmunity] = useState<Record<string, number>>({});
+
+  const [gameMode, setGameMode] = useState<'normal' | 'adult' | 'oni'>('normal');
   const skipNextGameModeSync = useRef(false);
 
   // お題提案パネル表示
   const [showSuggest, setShowSuggest] = useState(false);
 
-  // players のマージ（上書きは incoming を優先）
+  // players のマージ（スコアは常に大きい方を採用して安全にマージ）
   const mergePlayers = (prev: any[], incoming: any[]) => {
     const map = new Map<string, any>();
     prev.forEach(p => map.set(p.id, p));
-    incoming.forEach(p => map.set(p.id, { ...(map.get(p.id) || {}), ...p }));
+    incoming.forEach(p => {
+      const prevP = map.get(p.id) || {};
+      const merged = { ...prevP, ...p };
+      const prevScore = (prevP.score ?? 0);
+      const incScore = (p?.score ?? prevScore ?? 0);
+      // 重要: スコアは常に大きい方を採用（過去状態での上書きを防止）
+      merged.score = Math.max(prevScore, incScore);
+      map.set(p.id, merged);
+    });
     return Array.from(map.values());
   };
 
@@ -281,6 +361,8 @@ export default function App() {
         if (s.lastRoundResult !== undefined) setLastRoundResult(s.lastRoundResult);
         if (Number.isInteger(s.revealIdx)) setRevealIdx(s.revealIdx);
         if (s.gameMode) setGameMode(s.gameMode);
+        if (s.roulette !== undefined) setRoulette(s.roulette);
+        if (s.immunity !== undefined) setImmunity(s.immunity);
       }
     } catch (e) {
       console.warn('[snapshot] failed to load', e);
@@ -307,6 +389,9 @@ export default function App() {
         lastRoundResult,
         revealIdx,
         gameMode,
+        // ★ persist 追加
+        roulette,
+        immunity,
       };
       try { localStorage.setItem(SNAP_KEY, JSON.stringify(data)); } catch {}
     };
@@ -316,7 +401,7 @@ export default function App() {
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     };
-  }, [roomId, phase, questions, currentQ, players, hostId, votes, lastRoundResult, revealIdx, gameMode]);
+  }, [roomId, phase, questions, currentQ, players, hostId, votes, lastRoundResult, revealIdx, gameMode, roulette, immunity]);
 
   // 子コンポーネントから安全にブロードキャストするための関数
   const sendDiff = (diff: any) => {
@@ -360,6 +445,9 @@ export default function App() {
         setVotes(payload.votes || {});
       }
       if (payload.hostId !== undefined && payload.hostId) setHostId(payload.hostId);
+      if (payload.resetScores === true) {
+        setPlayers(prev => prev.map(p => ({ ...p, score: 0 })));
+      }
       if (payload.players !== undefined) {
         setPlayers(prev => mergePlayers(prev, payload.players));
       }
@@ -368,6 +456,12 @@ export default function App() {
       if (payload.gameMode !== undefined) {
         skipNextGameModeSync.current = true;
         setGameMode(payload.gameMode);
+      }
+      if (payload.roulette !== undefined) {
+        setRoulette(payload.roulette);
+      }
+      if (payload.immunity !== undefined) {
+        setImmunity(payload.immunity || {});
       }
       isRemoteRef.current = false;
     });
@@ -422,6 +516,69 @@ export default function App() {
     syncRef.current({ revealIdx });
   }, [revealIdx]);
 
+  // SHOW_CORRECT でルーレット結果を公開＆効果適用（免除の付与/消費・今回飲む人の確定）
+  useEffect(() => {
+    if (phase !== PHASES.SHOW_CORRECT) return;
+    if (!roulette || roulette.revealed) return;
+    const t = window.setTimeout(() => {
+      // ルーレット由来の候補（※チケットでは回避できない）
+      let wheelDrinkers: string[] = [];
+      if (roulette.outcome === 'DRINK_RIGHT') {
+        const r = rightOf(roulette.targetId); if (r) wheelDrinkers = [r];
+      } else if (roulette.outcome === 'DRINK_LEFT') {
+        const l = leftOf(roulette.targetId); if (l) wheelDrinkers = [l];
+      } else if (roulette.outcome === 'DRINK_SELF') {
+        wheelDrinkers = [roulette.targetId];
+      } else if (roulette.outcome === 'DRINK_ALL') {
+        wheelDrinkers = players.map(p => p.id);
+      }
+
+      // 投票ハズレ（正解できなかった人）由来の候補（※チケットで回避可能）
+      const losers = (lastRoundResult && Array.isArray((lastRoundResult as any).correctVoterIds))
+        ? players.filter((p: Player) => !(lastRoundResult as any).correctVoterIds.includes(p.id)).map(p => p.id)
+        : [];
+
+      // 免除適用（ハズレのみ対象）
+      let newImmunity = { ...immunity };
+      const avoidedIds: string[] = [];
+      const finalLosers: string[] = [];
+      for (const pid of losers) {
+        const has = (newImmunity[pid] || 0) > 0;
+        if (has) {
+          newImmunity[pid] = Math.max(0, (newImmunity[pid] || 0) - 1); // 1つ消費
+          avoidedIds.push(pid);
+        } else {
+          finalLosers.push(pid);
+        }
+      }
+
+      // ルーレット由来は免除不可のためそのまま飲む
+      const finalDrinkers: string[] = [...finalLosers, ...wheelDrinkers];
+
+      // IMMUNITY 当選は権利 +1（上限1）
+      if (roulette.outcome === 'IMMUNITY') {
+        const cur = newImmunity[roulette.targetId] || 0;
+        newImmunity = { ...newImmunity, [roulette.targetId]: Math.min(1, cur + 1) };
+      }
+
+      const nextRoulette = { ...roulette, revealed: true, drinkers: finalDrinkers, avoidedIds } as typeof roulette & { avoidedIds: string[] };
+      setImmunity(newImmunity);
+      setRoulette(nextRoulette);
+      if (syncRef.current) syncRef.current({ immunity: newImmunity, roulette: nextRoulette });
+    }, 900);
+    return () => window.clearTimeout(t);
+  }, [phase, roulette, players, immunity, lastRoundResult]);
+
+  // ★ Safety: ロビーに居るときは必ずローカルのスコアを0に（リロードで古いスナップショットを掴んでも矯正）
+  useEffect(() => {
+    if (phase !== PHASES.LOBBY) return;
+    setPlayers(prev => {
+      // すでに全員0なら何もしない（無駄な再レンダー防止）
+      if (!prev.some(p => (p.score ?? 0) !== 0)) return prev;
+      return prev.map(p => ({ ...p, score: 0 }));
+    });
+  }, [phase]);
+
   // trace important values
   useEffect(() => { dlog('phase ->', phase); }, [phase]);
   useEffect(() => { dlog('currentQ ->', currentQ); }, [currentQ]);
@@ -455,9 +612,24 @@ export default function App() {
   // 表示用ユーティリティ
   const nameOf = (pid: string) => players.find(p => p.id === pid)?.name ?? "?";
 
+  const rightOf = (pid: string) => {
+    const idx = players.findIndex(p => p.id === pid);
+    if (idx < 0 || players.length === 0) return null;
+    return players[(idx + 1) % players.length]?.id || null;
+  };
+
+  const leftOf = (pid: string) => {
+    const idx = players.findIndex(p => p.id === pid);
+    if (idx < 0 || players.length === 0) return null;
+    return players[(idx - 1 + players.length) % players.length]?.id || null;
+  };
+
   // 次ラウンドへ
   const goNextQuestion = () => {
     const next = currentQ + 1;
+    // ルーレット状態をクリア
+    setRoulette(null);
+    if (syncRef.current) syncRef.current({ roulette: null });
     if (next >= questions.length) {
       setPhase(PHASES.FINISHED);
     } else {
@@ -478,7 +650,22 @@ export default function App() {
     if (syncRef.current) syncRef.current({ votes: {} });
     setLastRoundResult(null);
     setRevealIdx(0);
-    setPlayers(prev => prev.map(p => ({ ...p, score: 0 })));
+    // ルーレットと免除をリセット
+    setRoulette(null);
+    if (syncRef.current) syncRef.current({ roulette: null });
+    setImmunity({});
+    if (syncRef.current) syncRef.current({ immunity: {} });
+    setPlayers(prev => {
+      const reset = prev.map(p => ({ ...p, score: 0 }));
+      if (syncRef.current) syncRef.current({ players: reset, resetScores: true });
+      return reset;
+    });
+  };
+
+  // Helper to reset immunity
+  const resetImmunity = () => {
+    setImmunity({});
+    sendDiff && sendDiff({ immunity: {} });
   };
 
   return (
@@ -514,10 +701,14 @@ export default function App() {
           setShowSuggest={setShowSuggest}
           gameMode={gameMode}
           setGameMode={setGameMode}
+          roulette={roulette}
+          resetImmunity={resetImmunity}
+          setRoulette={setRoulette}
+          immunity={immunity}
         />
         {/* Host-forced final results (safety net) */}
-        {phase === PHASES.FINISHED && myId === hostId && (
-          <FinalResults players={players} onBack={backToLobby} />
+        {phase === PHASES.FINISHED && (
+          <FinalResults players={players} onBack={myId === hostId ? backToLobby : undefined} />
         )}
         
       </div>
@@ -550,10 +741,10 @@ function Header({ roomId, phase, currentQ, total }: HeaderProps) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold">みんなの“思ってるやつ”投票ゲーム</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">ダレソレ！？</h1>
         <p className="text-sm text-neutral-600">Room ID: <span className="font-mono">{roomId}</span> / 状態: {phaseLabel}</p>
         <div className="mt-2 flex flex-col gap-2">
-          <p className="text-xs text-neutral-600">ゲームマスターになる人は下のリンクをコピーして、参加者に送ってね。</p>
+          <p className="text-xs text-neutral-600">下のリンクをコピーして、参加者に送ってね。</p>
           <div className="flex gap-2">
             <button
               className="btn"
@@ -581,8 +772,42 @@ function Header({ roomId, phase, currentQ, total }: HeaderProps) {
 // ------------------------------
 // プレーヤー疑似端末（複数人分の入力を 1 画面で）
 // ------------------------------
-function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, setVotes, nameOf, onlySelfId, hostId, roomId, questions, setQuestions, currentQ, setCurrentQ, everyoneAnswered, tally, lastRoundResult, setLastRoundResult, goNextQuestion, myId, sendDiff, revealIdx, setRevealIdx, showSuggest, setShowSuggest, gameMode, setGameMode }: { players: any[]; setPlayers: React.Dispatch<React.SetStateAction<any[]>>; phase: string; setPhase: React.Dispatch<React.SetStateAction<string>>; question: string; votes: Record<string, any>; setVotes: React.Dispatch<React.SetStateAction<Record<string, any>>>; nameOf: (id: string) => string; onlySelfId?: string | null; hostId: string | null; roomId: string; questions: string[]; setQuestions: React.Dispatch<React.SetStateAction<string[]>>; currentQ: number; setCurrentQ: React.Dispatch<React.SetStateAction<number>>; everyoneAnswered: boolean; tally: any; lastRoundResult: any; setLastRoundResult: React.Dispatch<React.SetStateAction<any>>; goNextQuestion: () => void; myId: string; sendDiff: (diff: any) => void; revealIdx: number; setRevealIdx: React.Dispatch<React.SetStateAction<number>>; showSuggest: boolean; setShowSuggest: React.Dispatch<React.SetStateAction<boolean>>;   gameMode: 'normal' | 'adult';
-  setGameMode: React.Dispatch<React.SetStateAction<'normal' | 'adult'>>;}) {
+function PlayersSim({
+  players, setPlayers, phase, setPhase, question, votes, setVotes, nameOf, onlySelfId, hostId, roomId, questions, setQuestions, currentQ, setCurrentQ, everyoneAnswered, tally, lastRoundResult, setLastRoundResult, goNextQuestion, myId, sendDiff, revealIdx, setRevealIdx, showSuggest, setShowSuggest, gameMode, setGameMode, roulette, resetImmunity, setRoulette, immunity
+}: {
+  players: any[];
+  setPlayers: React.Dispatch<React.SetStateAction<any[]>>;
+  phase: string;
+  setPhase: React.Dispatch<React.SetStateAction<string>>;
+  question: string;
+  votes: Record<string, any>;
+  setVotes: React.Dispatch<React.SetStateAction<Record<string, any>>>;
+  nameOf: (id: string) => string;
+  onlySelfId?: string | null;
+  hostId: string | null;
+  roomId: string;
+  questions: string[];
+  setQuestions: React.Dispatch<React.SetStateAction<string[]>>;
+  currentQ: number;
+  setCurrentQ: React.Dispatch<React.SetStateAction<number>>;
+  everyoneAnswered: boolean;
+  tally: any;
+  lastRoundResult: any;
+  setLastRoundResult: React.Dispatch<React.SetStateAction<any>>;
+  goNextQuestion: () => void;
+  myId: string;
+  sendDiff: (diff: any) => void;
+  revealIdx: number;
+  setRevealIdx: React.Dispatch<React.SetStateAction<number>>;
+  showSuggest: boolean;
+  setShowSuggest: React.Dispatch<React.SetStateAction<boolean>>;
+  gameMode: 'normal' | 'adult' | 'oni';
+  setGameMode: React.Dispatch<React.SetStateAction<'normal' | 'adult' | 'oni'>>;
+  roulette: any;
+  resetImmunity: () => void;
+  setRoulette: React.Dispatch<React.SetStateAction<any>>;
+  immunity: Record<string, number>;
+}) {
   // 同票は同順位のグループ（少ない→多い＝最下位→1位）
   const groups = React.useMemo(() => {
     const m = new Map<number, string[]>();
@@ -605,6 +830,7 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
   const visiblePlayers = onlySelfId ? players.filter(p => p.id === onlySelfId) : players.filter(p => p.id === myId);
 
   const isHostView = ((onlySelfId ?? myId) === hostId);
+  const displayName = (pid: string) => `${nameOf(pid)}${(immunity[pid] || 0) > 0 ? '🎟️' : ''}`;
 
   const self = players.find(p => p.id === myId);
   const [joinName, setJoinName] = useState(self?.name || "");
@@ -613,6 +839,8 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
 
   // --- local name state for editing player names (GM) ---
   const [localNames, setLocalNames] = useState<Record<string, string>>({});
+  // 飲み確定 演出トグル（この端末のみ）
+  const [drinkFx, setDrinkFx] = useState(false);
   const setLocalName = (val: string, id?: string) => {
     const target = id ?? myId;
     setLocalNames(prev => ({ ...prev, [target]: val }));
@@ -622,6 +850,27 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
     setVotes(prev => ({ ...prev, [pid]: { targetId, comment } }));
     requestAnimationFrame(() => { sendDiff && sendDiff({ votes: { ...votes, [pid]: { targetId, comment } } }); });
   };
+
+  // ラウンドごとに「飲み確定」演出（自分が飲みだった端末だけ）: ルーレットも考慮・免除も考慮
+  useEffect(() => {
+    if (phase !== PHASES.SHOW_CORRECT) {
+      setDrinkFx(false);
+      return;
+    }
+    if (!lastRoundResult || !Array.isArray(lastRoundResult.correctVoterIds)) return;
+    const losers = players.filter((p: Player) => !lastRoundResult.correctVoterIds.includes(p.id)).map(p => p.id);
+    const rouletteDrinkers: string[] = (typeof roulette === 'object' && roulette?.drinkers) || [];
+    const avoided: string[] = (typeof roulette === 'object' && (roulette as any)?.avoidedIds) || [];
+    // 実際に飲むのは「候補 − 回避」
+    const loserDrinkers = losers.filter(id => !avoided.includes(id));
+    const iShouldDrink = loserDrinkers.includes(myId) || rouletteDrinkers.includes(myId);
+    if (iShouldDrink) {
+      setDrinkFx(true);
+      try { if (navigator && 'vibrate' in navigator) (navigator as any).vibrate([80, 120, 160]); } catch {}
+    } else {
+      setDrinkFx(false);
+    }
+  }, [phase, lastRoundResult, myId, players, roulette]);
 
   useEffect(() => {
     if (phase === PHASES.FINISHED) {
@@ -675,7 +924,7 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
               <ul className="flex flex-wrap gap-2 mt-2">
                 {players.map((p: Player) => (
                   <li key={p.id} className="px-3 py-1 rounded-full bg-neutral-100 border text-sm">
-                    {p.name}{hostId === p.id ? '（GM）' : ''}
+                    {p.name}{(immunity[p.id]||0)>0 && '🎟️'}{hostId === p.id ? '（GM）' : ''}
                   </li>
                 ))}
               </ul>
@@ -700,6 +949,15 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
                     />
                     アダルト（ちょいえっちのみ）
                   </label>
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="mode"
+                      checked={gameMode === 'oni'}
+                      onChange={() => { setGameMode('oni'); sendDiff && sendDiff({ gameMode: 'oni' }); }}
+                    />
+                    鬼アダルト（超刺激）
+                  </label>
                 </div>
               </div>
 
@@ -716,8 +974,9 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
                 <h3 className="font-semibold mb-1">ルール</h3>
                 <ol className="list-decimal list-inside text-sm text-neutral-700 space-y-1">
                   <li>GMが問題を進行します。参加者は各設問に対して「みんなが選びそうな人」を投票します。</li>
-                  <li>コメントは必須。回答が揃ったらGMの端末で結果を最下位から発表します。</li>
-                  <li>1位に投票できていたら正解。正答数で最終順位を決めます。</li>
+                  <li>コメントは必須。回答が揃ったらGMがゲームを進行してくれるので自分の画面で結果を確認します。</li>
+                  <li>1位に投票できていたら正解。ハズレの人は罰ゲーム。</li>
+                  <li>ゲーム終了時の正答数で最終順位を決めます。最下位の人は罰ゲームです。</li>
                 </ol>
               </div>
 
@@ -764,8 +1023,9 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
                 <h3 className="font-semibold mb-1">ルール</h3>
                 <ol className="list-decimal list-inside text-sm text-neutral-700 space-y-1">
                   <li>GMが問題を進行します。参加者は各設問に対して「みんなが選びそうな人」を投票します。</li>
-                  <li>コメントは必須。回答が揃ったらGMの端末で結果を最下位→2位→1位の順で発表します。</li>
-                  <li>1位に投票できていたら正解。正答数で最終順位を決めます。</li>
+                  <li>コメントは必須。回答が揃ったらGMがゲームを進行してくれるので自分の画面で結果を確認します。</li>
+                  <li>1位に投票できていたら正解。ハズレの人は罰ゲーム。</li>
+                  <li>ゲーム終了時の正答数で最終順位を決めます。最下位の人は罰ゲームです。</li>
                 </ol>
               </div>
               <div className="mt-3">
@@ -787,6 +1047,14 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
           setRevealIdx(0);
           setVotes({});
           setLastRoundResult(null);
+          // ★ New: スコアをリセット（新ゲームは0点から）
+          setPlayers(prev => {
+            const reset = prev.map(p => ({ ...p, score: 0 }));
+            // ブロードキャスト（他端末も0点に同期・権限リセット）
+            sendDiff && sendDiff({ players: reset, resetScores: true });
+            return reset;
+          });
+          resetImmunity();
           setQuestions(qs);
           setCurrentQ(0);
           setPhase(PHASES.IN_PROGRESS);
@@ -807,6 +1075,7 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
                 players={players}
                 value={votes[p.id]}
                 onSubmit={submit}
+                immunity={immunity}
               />
             ))}
           </div>
@@ -828,21 +1097,42 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
 
       {isHostView && (phase === PHASES.REVEAL_FROM_BOTTOM || phase === PHASES.REVEAL_SECOND || phase === PHASES.REVEAL_FIRST) && currentGroup && (
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
-          <h2 className="font-semibold">結果発表：{revealIdx === 0 ? '最下位' : `${currentRank}位`}</h2>
+          <h2 className="font-semibold">結果発表：{totalRanks === 1 ? '1位（同率）' : (revealIdx === 0 ? '最下位' : `${currentRank}位`)}</h2>
           <div className="flex items-center gap-3 text-lg">
-            <span className="font-medium">{currentGroup.playerIds.map(nameOf).join('、')}</span>
+            <span className="font-medium">{currentGroup.playerIds.map(displayName).join('、')}</span>
             <span className="badge">{currentGroup.count} 票</span>
           </div>
-          {/* グループ全員分のコメント一覧 */}
+          {/* グループ全員分のコメント一覧（対象ごと） */}
           <div className="mt-2">
-            <h4 className="text-sm font-semibold mb-1">コメント</h4>
-            <ul className="space-y-1">
-              {(tally.comments || []).filter((c: any) => currentGroup.playerIds.includes(c.targetId)).map((c: any, idx: number) => (
-                <li key={idx} className="text-sm">
-                  <span>{c.comment}</span>
-                </li>
-              ))}
-            </ul>
+            <h4 className="text-sm font-semibold mb-1">コメント（対象ごと）</h4>
+            {(() => {
+              const byTarget: Record<string, { voterId: string; targetId: string; comment: string }[]> = {};
+              (tally.comments || []).forEach((c: any) => {
+                if (!currentGroup.playerIds.includes(c.targetId)) return;
+                (byTarget[c.targetId] ||= []).push(c);
+              });
+              return (
+                <div className="space-y-2">
+                  {currentGroup.playerIds.map((pid: string) => (
+                    <div key={pid} className="rounded-xl border p-2">
+                      <div className="text-sm font-medium mb-1 flex items-center gap-2">
+                        <span className="inline-block px-2 py-0.5 rounded-full bg-neutral-100 border">{displayName(pid)}</span>
+                        <span className="text-xs text-neutral-500">{(byTarget[pid]?.length || 0)} 件</span>
+                      </div>
+                      {byTarget[pid] && byTarget[pid].length > 0 ? (
+                        <ul className="space-y-1">
+                          {byTarget[pid].map((c, idx) => (
+                            <li key={idx} className="text-sm">{c.comment}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-xs text-neutral-500">コメントなし</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
           <div className="flex gap-2 mt-3">
             {revealIdx < totalRanks - 1 ? (
@@ -874,6 +1164,18 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
                   sendDiff && sendDiff({ players: updatedPlayers });
                   // ラウンド結果を保存
                   setLastRoundResult({ firstTargets, correctVoterIds });
+                  // --- ルーレット抽選 ---
+                  if (correctVoterIds.length) {
+                    const targetId = correctVoterIds[Math.floor(Math.random() * correctVoterIds.length)];
+                    const wheel: Array<'IMMUNITY'|'IMMUNITY'|'DRINK_RIGHT'|'DRINK_LEFT'|'DRINK_SELF'|'DRINK_ALL'> = ['IMMUNITY','IMMUNITY','DRINK_RIGHT','DRINK_LEFT','DRINK_SELF','DRINK_ALL'];
+                    const outcome = wheel[Math.floor(Math.random() * wheel.length)];
+                    const r = { round: currentQ, targetId, outcome, revealed: false } as const;
+                    setRoulette(r);
+                    sendDiff && sendDiff({ roulette: r });
+                  } else {
+                    setRoulette(null);
+                    sendDiff && sendDiff({ roulette: null });
+                  }
                   // 当たり/ハズレ表示へ
                   setPhase(PHASES.SHOW_CORRECT);
                 }}
@@ -883,22 +1185,54 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
         </div>
       )}
 
+      {phase === PHASES.SHOW_CORRECT && roulette && (
+        <div className="rounded-2xl border bg-white p-4 shadow-sm">
+          <h3 className="font-semibold">🎰 ルーレットチャンス</h3>
+          <p className="text-sm text-neutral-700 mt-1">
+            挑戦者：<span className="font-medium">{displayName(roulette.targetId)}</span>
+          </p>
+          {!roulette.revealed ? (
+            <div className="mt-2 text-sm text-neutral-500">スピン中…</div>
+          ) : (
+            <div className="mt-3 p-3 rounded-xl border bg-neutral-50">
+              {roulette.outcome === 'IMMUNITY' && (<span>当たり！<b>飲み回避権 +1</b> を獲得 🎟️</span>)}
+              {roulette.outcome === 'DRINK_RIGHT' && (<span><b>右隣の人が飲み</b> 🍻</span>)}
+              {roulette.outcome === 'DRINK_LEFT' && (<span><b>左隣の人が飲み</b> 🍻</span>)}
+              {roulette.outcome === 'DRINK_SELF' && (<span><b>自分が飲み</b> 🥤</span>)}
+              {roulette.outcome === 'DRINK_ALL' && (<span><b>全員で飲み</b> 🍺</span>)}
+            </div>
+          )}
+        </div>
+      )}
       {phase === PHASES.SHOW_CORRECT && lastRoundResult && (
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
-          <h3 className="font-semibold">当てた人 / 外した人</h3>
-          <p className="text-sm text-neutral-600">正解（1位）：{(lastRoundResult.firstTargets || []).map(nameOf).join('、')}</p>
-          <ul className="mt-2 grid sm:grid-cols-2 gap-2">
-            {players.map((p: Player) => (
-              <li key={p.id} className="flex items-center gap-2 p-2 rounded-xl border">
-                <span className="w-24 font-medium">{p.name}</span>
-                {lastRoundResult.correctVoterIds.includes(p.id) ? (
-                  <span className="badge bg-emerald-100 text-emerald-800">当たり</span>
+          <h3 className="font-semibold">飲む人（外した人のみ表示）</h3>
+          {(() => {
+            const losers = players.filter((p: Player) => !lastRoundResult.correctVoterIds.includes(p.id));
+            return (
+              <>
+                {losers.length === 0 ? (
+                  <div className="mt-2 p-3 rounded-xl bg-emerald-50 border text-emerald-900">今回は全員セーフ！飲む人はいません。</div>
                 ) : (
-                  <span className="badge bg-rose-100 text-rose-800">ハズレ</span>
+                  <ul className="mt-2 grid sm:grid-cols-2 gap-2">
+                    {losers.map((p: Player) => (
+                      <li key={p.id} className="p-2 rounded-xl border">
+                        {(() => {
+                          const avoided = Array.isArray((roulette as any)?.avoidedIds) ? (roulette as any).avoidedIds as string[] : [];
+                          const didAvoid = avoided.includes(p.id);
+                          return (
+                            <span className="font-medium">
+                              {displayName(p.id)}{didAvoid ? 'はチケットを消費して飲み回避' : 'は飲み'}
+                            </span>
+                          );
+                        })()}
+                      </li>
+                    ))}
+                  </ul>
                 )}
-              </li>
-            ))}
-          </ul>
+              </>
+            );
+          })()}
           {isHostView && (
             <div className="mt-3 flex gap-2">
               <button className="btn" onClick={goNextQuestion}>
@@ -911,29 +1245,75 @@ function PlayersSim({ players, setPlayers, phase, setPhase, question, votes, set
 
       {!isHostView && (phase === PHASES.REVEAL_FROM_BOTTOM || phase === PHASES.REVEAL_SECOND || phase === PHASES.REVEAL_FIRST) && currentGroup && (
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
-          <h2 className="font-semibold">結果発表：{revealIdx === 0 ? '最下位' : `${currentRank}位`}</h2>
+          <h2 className="font-semibold">結果発表：{totalRanks === 1 ? '1位（同率）' : (revealIdx === 0 ? '最下位' : `${currentRank}位`)}</h2>
           <div className="flex items-center gap-3 text-lg">
-            <span className="font-medium">{currentGroup.playerIds.map(nameOf).join('、')}</span>
+            <span className="font-medium">{currentGroup.playerIds.map(displayName).join('、')}</span>
             <span className="badge">{currentGroup.count} 票</span>
           </div>
           <div className="mt-2">
-            <h4 className="text-sm font-semibold mb-1">コメント</h4>
-            <ul className="space-y-1">
-              {(tally.comments || []).filter((c: any) => currentGroup.playerIds.includes(c.targetId)).map((c: any, idx: number) => (
-                <li key={idx} className="text-sm">
-                  <span>{c.comment}</span>
-                </li>
-              ))}
-            </ul>
+            <h4 className="text-sm font-semibold mb-1">コメント（対象ごと）</h4>
+            {(() => {
+              const byTarget: Record<string, { voterId: string; targetId: string; comment: string }[]> = {};
+              (tally.comments || []).forEach((c: any) => {
+                if (!currentGroup.playerIds.includes(c.targetId)) return;
+                (byTarget[c.targetId] ||= []).push(c);
+              });
+              return (
+                <div className="space-y-2">
+                  {currentGroup.playerIds.map((pid: string) => (
+                    <div key={pid} className="rounded-xl border p-2">
+                      <div className="text-sm font-medium mb-1 flex items-center gap-2">
+                        <span className="inline-block px-2 py-0.5 rounded-full bg-neutral-100 border">{displayName(pid)}</span>
+                        <span className="text-xs text-neutral-500">{(byTarget[pid]?.length || 0)} 件</span>
+                      </div>
+                      {byTarget[pid] && byTarget[pid].length > 0 ? (
+                        <ul className="space-y-1">
+                          {byTarget[pid].map((c, idx) => (
+                            <li key={idx} className="text-sm">{c.comment}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-xs text-neutral-500">コメントなし</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         </div>
+      )}
+      {drinkFx && (
+        <>
+          <style>
+            {`
+              @keyframes keg-pop { 0% { transform: scale(0.7); opacity: 0; } 40% { transform: scale(1.15); opacity: 1; } 60% { transform: scale(0.95); } 100% { transform: scale(1); opacity: 1; } }
+              @keyframes beer-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+              @keyframes flash-bg { 0% { opacity: 0; } 25% { opacity: .75; } 100% { opacity: 0; } }
+            `}
+          </style>
+          {/* 背景フラッシュを少し強め・長めに */}
+          <div className="fixed inset-0 pointer-events-none bg-amber-100/50" style={{ animation: 'flash-bg 1.4s ease-out' }} />
+          {/* 大きめの中央トースト */}
+          <div className="fixed inset-0 pointer-events-none flex items-center justify-center">
+            <div
+              className="pointer-events-auto rounded-3xl border bg-white/95 shadow-2xl px-8 py-6 flex items-center gap-4"
+              style={{ animation: 'keg-pop 600ms ease-out' }}
+            >
+              <div style={{ fontSize: 52, animation: 'beer-bounce 1.1s ease-in-out infinite' }}>🍺</div>
+              <div>
+                <div className="text-2xl font-extrabold text-rose-700">飲み確定！</div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
 }
 
 
-function PlayerVoteCard({ self, players, value, onSubmit }: { self: Player; players: Player[]; value: { targetId: string; comment: string } | undefined; onSubmit: (pid: string, targetId: string, comment: string) => void }) {
+function PlayerVoteCard({ self, players, value, onSubmit, immunity }: { self: Player; players: Player[]; value: { targetId: string; comment: string } | undefined; onSubmit: (pid: string, targetId: string, comment: string) => void; immunity: Record<string, number>; }) {
   const [targetId, setTargetId] = useState(value?.targetId || "");
   const [comment, setComment] = useState(value?.comment || "");
 
@@ -967,7 +1347,7 @@ function PlayerVoteCard({ self, players, value, onSubmit }: { self: Player; play
                   }
                   aria-hidden="true"
                 />
-                <span>{p.name}</span>
+                <span>{p.name}{(immunity[p.id]||0)>0 && '🎟️'}</span>
                 {active && <span className="ml-1 text-xs opacity-90">✓ 選択中</span>}
               </span>
             </button>
@@ -1055,14 +1435,16 @@ function uid() { return Math.random().toString(36).slice(2, 10); }
 -------------------------------------------------------------- */
 
 // お題入力パネル
-function TopicInputPanel({ gameMode, onCancel, onStart }: { gameMode: 'normal'|'adult'; onCancel?: () => void; onStart: (questions: string[]) => void }) {
+function TopicInputPanel({ gameMode, onCancel, onStart }: { gameMode: 'normal'|'adult'|'oni'; onCancel?: () => void; onStart: (questions: string[]) => void }) {
   const [freeText, setFreeText] = useState("");
   const [includeFree, setIncludeFree] = useState(true);
   // 5問生成：1/5 でエロ系、それ以外は通常。free を混ぜる場合はランダムで1問差し替え
   const buildQuestions = () => {
     const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
     const out: string[] = [];
-    if (gameMode === 'adult') {
+    if (gameMode === 'oni') {
+      for (let i = 0; i < 5; i++) out.push(pick(ONI_QUESTIONS));
+    } else if (gameMode === 'adult') {
       for (let i = 0; i < 5; i++) out.push(pick(ERO_QUESTIONS));
     } else {
       for (let i = 0; i < 5; i++) {
